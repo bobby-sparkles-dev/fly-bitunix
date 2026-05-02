@@ -1,6 +1,6 @@
 # Fly.io configuration for the BitUnix geo-unblock proxy.
 # Rename `app` to whatever you used with `fly launch`.
-app = "bitunix-proxy"
+app = "fly-bitunix"
 primary_region = "fra"
 
 [build]
