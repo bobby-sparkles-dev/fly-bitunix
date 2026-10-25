@@ -274,7 +274,9 @@ window.addEventListener("unhandledrejection",function(e){
  <div class="headingrow" style="margin-top:18px"><h2>Recent virtual trades</h2></div>
  <div id="paper-history" class="muted">No trades recorded.</div>
 </section>
-<section class="panel" style="margin-bottom:16px"><div class="headingrow"><h2>Historical memory</h2><span class="pill" id="training-window">30-day warm-up</span></div><div class="progress-track"><div class="progress-fill" id="archive-bar"></div></div><div class="progress-extra"><span id="archive-info">Checking archived candles...</span><span>Target: 180 days across 11 assets</span></div><div class="info">The short-window model continues while earlier candles are imported. The 60-day training / 14-day historical test model activates only once sufficient matched history is available.</div></section>
+<section class="panel" style="margin-bottom:16px"><div class="headingrow"><h2>Historical memory</h2><span class="pill" id="training-window">30-day warm-up</span></div><div class="progress-track"><div class="progress-fill" id="archive-bar"></div></div><div class="progress-extra"><span id="archive-info">Checking archived candles...</span><span>Target: 180 days across 11 assets</span></div>
+ <div class="progress-extra"><strong id="archive-persisted">Archive checkpoint: checking…</strong><span id="archive-last-coin">Last import: —</span></div>
+ <div class="info" id="archive-health" role="status">Checking archive coverage and last saved checkpoint.</div><div class="info">The short-window model continues while earlier candles are imported. The 60-day training / 14-day historical test model activates only once sufficient matched history is available.</div></section>
 <section class="panel progress-shell" id="research-progress-panel" aria-live="polite">
  <div class="headingrow"><div><div class="eyebrow">RESEARCH ENGINE · LIVE PROGRESS</div><h2 id="phase-label">Waiting for server status</h2></div><strong id="progress-value" style="font-size:24px">—</strong></div>
  <div class="progress-track" role="progressbar" aria-label="Research cycle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
@@ -521,6 +523,26 @@ load();
       setVal("archive-info",archive.minimum_days_across_symbols!=null?
         archive.minimum_days_across_symbols.toFixed(1)+" days available for the least-covered asset ("+
         Number(archive.percent||0).toFixed(1)+"% of target)":"Archive coverage not measured yet");
+      const coverage=archive.symbols||{};
+      const byAge=Object.entries(coverage).map(([coin,details])=>({
+        coin, days:Number(details?.oldest_days_ago)||0, rows:Number(details?.rows)||0
+      })).sort((a,b)=>a.days-b.days);
+      const minimum=byAge[0];
+      const maximum=byAge[byAge.length-1];
+      setVal("archive-persisted",state.archive_persisted_at
+        ?"Latest archive saved to Neon: "+new Date(state.archive_persisted_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})
+        :"Archive checkpoint: not yet confirmed in this process");
+      setVal("archive-last-coin",state.archive_latest_symbol
+        ?"Latest import: "+state.archive_latest_symbol+" ("+Number(state.archive_latest_rows||0)+" rows)"
+        :"No archive batch recorded since startup");
+      setVal("archive-health",state.archive_last_error
+        ?"ARCHIVE ERROR: "+state.archive_last_error+
+          ". Main BTC scoring can still continue; the 180-day archive is paused."
+        :minimum
+        ?"Least history: "+minimum.coin.replace("USDT","")+" "+minimum.days.toFixed(1)+" days ("+minimum.rows.toLocaleString("en-GB")+" candles). "+
+         "Most history: "+maximum.coin.replace("USDT","")+" "+maximum.days.toFixed(1)+" days. "+
+         "This percentage uses the LEAST-covered coin. A restart can revert unsaved imports; the Neon checkpoint timestamp above shows what is durable."
+        :"Awaiting actual per-coin archive coverage.");
       setVal("training-window",state.training_window_days===74?"60d train + 14d test":"30-day warm-up");
       const score=state.score;
       const phase=String(state.phase||"STARTING");
