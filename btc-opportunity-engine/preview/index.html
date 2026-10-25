@@ -52,7 +52,7 @@ h1{font-size:clamp(30px,4vw,49px);line-height:1.13;letter-spacing:-.04em;margin:
 <section class="panel progress-shell" id="research-progress-panel" aria-live="polite">
  <div class="headingrow"><div><div class="eyebrow">RESEARCH ENGINE · LIVE PROGRESS</div><h2 id="phase-label">Waiting for server status</h2></div><strong id="progress-value" style="font-size:24px">—</strong></div>
  <div class="progress-track" role="progressbar" aria-label="Research cycle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
- <div class="progress-extra"><span id="current-market">Current market: —</span><span id="candle-count">Candles processed: —</span><span id="heartbeat">Last progress: —</span></div>
+ <div class="progress-extra"><span id="engine-source">Exchange: checking…</span><span id="worker-alive">Worker heartbeat: —</span><span id="retry-deadline"></span></div><div class="progress-extra"><span id="current-market">Current market: —</span><span id="candle-count">Candles processed: —</span><span id="heartbeat">Last progress: —</span></div>
  <div id="stale-warning" class="stale" hidden></div><div id="live-errors" role="alert"></div>
  <div class="headingrow" style="margin-top:18px"><h2>Recent system events</h2><small>Refreshes every 10 seconds</small></div>
  <div id="events"><span class="muted">Awaiting event data…</span></div>
@@ -92,7 +92,7 @@ h1{font-size:clamp(30px,4vw,49px);line-height:1.13;letter-spacing:-.04em;margin:
 "use strict";
 const el=(id)=>document.getElementById(id);
 const symbols=["ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","SUIUSDT","LTCUSDT"];
-const base="https://data-api.binance.vision/api/v3/klines";
+let base="https://data-api.binance.vision/api/v3/klines";
 let mode="live",lastBars=[];
 function format(n,d=2){return Number.isFinite(n)?n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";}
 function pct(n){return Number.isFinite(n)?(n>=0?"+":"")+format(n,2)+"%":"—";}
@@ -187,9 +187,26 @@ load();
         TRAINING:"Learning which past conditions preceded favourable BTC outcomes.",
         RUNNING:"Tracking completed candles, scoring opportunities and evaluating paper outcomes.",
         STALE_DATA:"Market feed is too old. New signals cannot be trusted.",
+        RATE_LIMITED:"The exchange has temporarily restricted API requests. The engine is pausing safely, not downloading.",
         ERROR:"The last research cycle failed. Review the error panel below."
       };
       setVal("engine-plain-state",phase);
+      const venues={binance_global:"Binance.com spot",binance_us:"Binance.US spot"};
+      const chosen=state.data_venue==="binance_us"?"https://api.binance.us/api/v3/klines":"https://data-api.binance.vision/api/v3/klines";
+      if(state.data_venue && chosen!==base) {base=chosen; mode="live";load();}
+
+      setVal("engine-source","Research source: "+(venues[state.data_venue]||state.data_venue||"Unknown"));
+      const hb=Date.parse(state.worker_heartbeat_at||"");
+      const heartAge=Date.now()-hb;
+      setVal("worker-alive",Number.isFinite(heartAge)?"Worker heartbeat: "+Math.floor(Math.max(0,heartAge)/1000)+"s ago":"Worker heartbeat: unknown");
+      const deadline=Date.parse(state.retry_at||"");
+      setVal("retry-deadline",phase==="RATE_LIMITED"&&Number.isFinite(deadline)
+        ?"Next permitted retry: "+prettyTime(state.retry_at)+
+        (deadline>Date.now()?" · "+Math.ceil((deadline-Date.now())/60000)+" min remaining":" · retry due")
+        :"");
+      if(phase==="RATE_LIMITED"||phase==="ERROR"||phase==="STALE_DATA") {
+         setVal("market-prob","—"); setVal("long-prob","—");
+      }
       setVal("plain-message",descriptions[phase]||"Checking research status.");
       setVal("plain-detail",state.message||"Research-only: no real orders.");
       setVal("market-prob",score?asPct(score.p_tradeable):"—");
@@ -211,12 +228,12 @@ load();
       const collection=prog.collection||{};
       setText("current-market",collection.current_symbol?("Market "+collection.symbol_number+"/"+collection.total_symbols+": "+collection.current_symbol):"Market: —");
       setText("candle-count",collection.ingested_rows!=null?"Candle rows written: "+Number(collection.ingested_rows).toLocaleString("en-GB"):"Candle rows: —");
-      setText("heartbeat","Last progress: "+prettyTime(prog.heartbeat_at||state.heartbeat_at));
+      setText("heartbeat","Last data progress: "+prettyTime(prog.heartbeat_at||state.heartbeat_at));
       const age=Date.now()-Date.parse(prog.heartbeat_at||state.heartbeat_at||"");
       const stale=Number.isFinite(age)&&age>90000&&["COLLECTING","TRAINING"].includes(state.phase);
       const warning=document.getElementById("stale-warning");
       warning.hidden=!stale;
-      warning.textContent=stale?"No progress heartbeat for "+Math.floor(age/60000)+" minutes. Download or training may be stalled.":"";
+      warning.textContent=stale?"No new candle/training progress for "+Math.floor(age/60000)+" minutes. Worker heartbeat above shows whether the service itself is alive.":"";
       setText("live-errors",state.last_error?"Last error: "+state.last_error:"");
       const events=document.getElementById("events");
       const history=Array.isArray(state.events)?state.events.slice(-12).reverse():[];
