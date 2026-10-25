@@ -370,6 +370,17 @@ class Handler(BaseHTTPRequestHandler):
             p = ROOT / "preview" / "index.html"
             if p.is_file():
                 return self.respond(p.read_bytes(), "text/html; charset=utf-8")
+        if path == "/api/market":
+            from .api_market import market_snapshot
+            try:
+                payload = market_snapshot(DB)
+                return self.respond(json.dumps(payload).encode(), "application/json; charset=utf-8")
+            except (OSError, ValueError, sqlite3.DatabaseError) as exc:
+                LOG.warning("Chart data unavailable: %s", exc)
+                return self.respond(
+                    json.dumps({"error": "Stored market data is not ready", "details": str(exc)[:180],
+                                "source": "backend_saved_completed_candles"}).encode(),
+                    "application/json; charset=utf-8", 503)
         if path == "/api/state":
             return self.respond(json.dumps(snapshot()).encode(), "application/json; charset=utf-8")
         if path == "/api/health":
