@@ -14,7 +14,7 @@ def build_outcomes(btc: pd.DataFrame, features: pd.DataFrame, settings: Settings
     btc = btc.sort_index()
     f = features.reindex(btc.index)
     result = pd.DataFrame(index=btc.index,
-                          columns=["tradeable", "long_win", "net_r", "exit_time", "exit_reason"],
+                          columns=["tradeable", "long_win", "net_r", "gross_r", "cost_r", "exit_time", "exit_reason"],
                           dtype=object)
     horizon = settings.horizon_bars
     if horizon < 1:
@@ -60,9 +60,14 @@ def build_outcomes(btc: pd.DataFrame, features: pd.DataFrame, settings: Settings
         exit_fill = exit_raw * (1 - slip)
         net_pnl = exit_fill - entry - fee * (entry + exit_fill)
         net_r = net_pnl / risk
-        result.loc[t[i]] = (tradeable, int(net_r > 0), net_r, exit_ts, reason)
+        # Counterfactual price movement with identical setup/exit, before fees
+        # and slippage. This is a diagnostic ONLY, never a trained feature.
+        gross_r = (exit_raw - entry_open) / risk
+        friction_r = gross_r - net_r
+        result.loc[t[i]] = (tradeable, int(net_r > 0), net_r, gross_r,
+                            friction_r, exit_ts, reason)
     return result.dropna().astype({"tradeable": int, "long_win": int,
-                                   "net_r": float, "exit_time": "int64"})
+                                   "net_r": float, "gross_r": float, "cost_r": float, "exit_time": "int64"})
 
 
 def non_overlapping_trades(rows: pd.DataFrame) -> pd.DataFrame:
