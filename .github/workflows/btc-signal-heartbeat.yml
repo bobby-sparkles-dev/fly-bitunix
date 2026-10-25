@@ -1,0 +1,54 @@
+name: BTC Signal Lab scheduled wake and health
+# The research app currently runs on a free Render web service. This is a
+# best-effort five-minute wake/check, NOT a guaranteed 24/7 worker.
+# GitHub scheduled workflows can be delayed/dropped. For production use,
+# move collection to an always-on service or a dedicated scheduled worker.
+on:
+  schedule:
+    - cron: '2-59/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: btc-signal-lab-health
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Wake Render and inspect research status
+        env:
+          BTC_SIGNAL_URL: https://btc-signal-lab-research.onrender.com
+        run: |
+          python - <<'PY'
+          import datetime
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          base = os.environ["BTC_SIGNAL_URL"]
+          for i in range(3):
+              try:
+                  request = urllib.request.Request(
+                      base + "/api/health",
+                      headers={"User-Agent": "btc-signal-lab-github-health/1.0",
+                               "Accept": "application/json"},
+                  )
+                  with urllib.request.urlopen(request, timeout=100) as response:
+                      data = json.load(response)
+                  if data.get("service") != "ok":
+                      raise RuntimeError("Research web service returned unhealthy status")
+                  print("Research server available:", json.dumps(data, sort_keys=True))
+                  break
+              except Exception as e:
+                  print(f"Health probe {i + 1}/3 failed: {type(e).__name__}: {e}")
+                  if i == 2:
+                      raise
+                  time.sleep(8)
+          PY
