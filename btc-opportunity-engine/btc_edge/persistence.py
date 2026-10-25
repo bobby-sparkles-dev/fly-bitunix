@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import zlib
 import tempfile
 from pathlib import Path
 
@@ -53,7 +54,12 @@ def restore(destination: Path, model_dir: Path) -> bool:
         return False
     data, model_json = record
     temp = destination.with_suffix(".restore.tmp")
-    temp.write_bytes(bytes(data))
+    raw = bytes(data)
+    if raw.startswith(b"ZLIB1"):
+        raw = zlib.decompress(raw[5:])
+        if len(raw) > 250_000_000:
+            raise RuntimeError("Unreasonably large restored SQLite snapshot")
+    temp.write_bytes(raw)
     try:
         with sqlite3.connect(temp) as check:
             if check.execute("PRAGMA quick_check").fetchone()[0] != "ok":
@@ -79,7 +85,7 @@ def checkpoint(source: Path, model_dir: Path) -> None:
         snapshot = Path(tmp) / "snapshot.sqlite"
         with sqlite3.connect(source) as live, sqlite3.connect(snapshot) as copy:
             live.backup(copy)
-        payload = snapshot.read_bytes()
+        payload = b"ZLIB1" + zlib.compress(snapshot.read_bytes(), level=6)
         file = model_dir / "latest.json"
         models = file.read_text() if file.is_file() else None
         with _connect() as conn:
