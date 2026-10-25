@@ -92,6 +92,14 @@ def test_train_and_score_research_only(tmp_path):
     assert payload["deployment_mode"] == "PAPER_ONLY"
     assert payload["report"]["observations_training"] > 400
     assert payload["report"]["filtered_trades"]["trades"] >= 0
+    audit = payload["report"]["cost_audit"]
+    assert audit["round_trip_fee_slippage_bps_approx"] == 24.0
+    assert 0 <= audit["test_net_positive_fraction"] <= 1
+    assert 0 <= audit["test_price_positive_before_costs_fraction"] <= 1
+    assert audit["test_price_positive_before_costs_fraction"] >= audit["test_net_positive_fraction"]
+    assert abs(audit["test_average_gross_r"] -
+               audit["test_average_cost_r"] -
+               audit["test_average_net_r"]) < 0.00003
     assert not payload["report"]["meets_research_gate"]
     score = latest_score(features, tmp_path, now_ms=int(features.index.max())+INTERVAL_MS+60_000)
     assert score["status"] == "RESEARCH_ONLY"
