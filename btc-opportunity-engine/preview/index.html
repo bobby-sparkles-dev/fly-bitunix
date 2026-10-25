@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>BTC Signal Lab | Research Preview</title>
+<style>
+:root{--bg:#0a0c13;--panel:#111522;--line:#242b3d;--ink:#edf2ff;--muted:#96a2bb;--mint:#6de4c2;--red:#fb8293;--amber:#f8c77d}
+*{box-sizing:border-box}html,body{margin:0}body{background:radial-gradient(circle at 73% -22%,#233e4c 0,transparent 41%),var(--bg);color:var(--ink);font:14px/1.48 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1220px;margin:auto;padding:28px 22px 52px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:26px;flex-wrap:wrap}.brand{font-size:17px;font-weight:800;letter-spacing:.05em}.mark{display:inline-grid;place-items:center;width:35px;height:35px;border-radius:10px;background:var(--mint);color:#0a1316;margin-right:9px}small,.muted{color:var(--muted)}.headright{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #425062;padding:7px 10px;border-radius:99px;color:#d5deed;font-size:11px;letter-spacing:.06em;font-weight:750}.dot{width:7px;height:7px;background:var(--amber);border-radius:99px}.dot.live{background:var(--mint)}
+h1{font-size:clamp(30px,4vw,49px);line-height:1.13;letter-spacing:-.04em;margin:0 0 12px}h2{margin:0;font-size:15px;letter-spacing:.01em}.intro{max-width:730px;color:var(--muted);margin:0 0 26px;font-size:15px}button{border:1px solid var(--line);background:#1a2333;color:var(--ink);border-radius:9px;padding:9px 13px;font:inherit;cursor:pointer}button:hover{border-color:#5b7683}.actions{display:flex;gap:8px;flex-wrap:wrap}.layout{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}.panel{background:linear-gradient(155deg,#141a2a,#111521);border:1px solid var(--line);border-radius:16px;padding:21px;min-width:0}.full{grid-column:1/-1}.eyebrow{color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.score{font-size:48px;font-weight:800;letter-spacing:-.06em;margin-top:2px}.state{font-size:23px;font-weight:750}.hero{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.info{background:#222b3c;border-radius:9px;padding:12px;color:#c1cde3;font-size:12px;margin-top:17px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:21px}.stat{background:#0c111d;border:1px solid #262e3d;border-radius:12px;padding:15px}.stat label{display:block;color:var(--muted);font-size:11px;margin-bottom:6px}.stat strong{font-size:21px}.stat em{display:block;color:#8d9bb4;font-size:11px;font-style:normal;margin-top:4px}.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}.row strong{font-weight:650}.status{color:var(--amber)}.green{color:var(--mint)}.red{color:var(--red)}.headingrow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}#chart{height:295px;width:100%;display:block}.chart-meta{font-size:12px;color:var(--muted);margin-top:4px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:7px}.altlist{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:16px}.coin{background:#0b111c;border:1px solid #273045;border-radius:10px;padding:13px;min-width:0}.coin small{display:block}.coin strong{font-size:18px}.footer{color:#8694ad;margin-top:25px;font-size:12px;line-height:1.7}a{color:#aeeadc}#source{word-break:break-word}.callout{border-left:3px solid var(--amber);padding:12px 16px;background:#252333;border-radius:0 8px 8px 0;margin-bottom:26px;color:#f2dabc}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.altlist{grid-template-columns:repeat(3,minmax(0,1fr))}.grid3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:490px){main{padding:19px 13px 45px}.panel{padding:15px}.altlist{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3{gap:8px}.stat{padding:12px}.stat strong{font-size:18px}#chart{height:235px}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="brand"><span class="mark">₿</span> BTC SIGNAL LAB <small> / RESEARCH</small></div><div class="headright"><span class="pill"><span class="dot" id="dot"></span><span id="feed-status">CONNECTING TO MARKET DATA</span></span><span class="pill">NO LIVE TRADING</span></div></header>
+<h1>Trade less. <span style="color:var(--mint)">Know when to look.</span></h1>
+<p class="intro">A research dashboard for Bitcoin long opportunities, informed by what the broader crypto market is doing. This preview displays public candle data and exploratory measurements. The adaptive model is not deployed or validated.</p>
+<div class="callout" role="status"><strong>Research preview, not a trading signal.</strong> Green-light trading decisions are deliberately disabled until we have real forward-test evidence. Historical win rate: not measured.</div>
+<div class="layout">
+<section class="panel">
+<div class="hero"><div><div class="eyebrow">BTC OPPORTUNITY GATE</div><div class="state" style="margin-top:9px">NOT ACTIVATED</div><div class="muted">Awaiting trained, forward-validated model</div></div><div><div class="eyebrow">MODEL SCORE</div><div class="score">—</div></div></div>
+<div class="info">The target is ≥55% winning BTC spot long paper trades with positive net expectancy after realistic costs. A displayed percentage won't count until verified against unseen outcomes.</div>
+<div class="grid3">
+<div class="stat"><label>BTC price</label><strong id="price">—</strong><em id="price-status">Connecting...</em></div>
+<div class="stat"><label>Trend efficiency · 1h</label><strong id="efficiency">—</strong><em>0–100% directional travel</em></div>
+<div class="stat"><label>BTC change · 1h</label><strong id="change">—</strong><em>Price movement</em></div>
+<div class="stat"><label>Volume vs previous hour</label><strong id="volume">—</strong><em>Relative notional activity</em></div>
+<div class="stat"><label>Realised volatility · 1h</label><strong id="volatility">—</strong><em>Five-minute log returns</em></div>
+<div class="stat"><label>Altcoin breadth · 1h</label><strong id="breadth">—</strong><em>Share of tracked coins up</em></div>
+</div>
+</section>
+<section class="panel">
+<div class="headingrow"><h2>System status</h2><span class="pill">READ ONLY</span></div>
+<div class="row"><span>Public price feed</span><strong id="data-quality" class="status">Checking</strong></div>
+<div class="row"><span>Live learning process</span><strong class="status">Not deployed</strong></div>
+<div class="row"><span>Market-condition model</span><strong class="status">Not trained</strong></div>
+<div class="row"><span>YouTube trader extraction</span><strong class="status">Offline module</strong></div>
+<div class="row"><span>Paper-trade evaluator</span><strong class="status">Offline module</strong></div>
+<div class="row"><span>Automated trading</span><strong>Disabled</strong></div>
+<div style="margin-top:24px"><div class="headingrow"><h2>Data controls</h2></div><div class="actions"><button id="refresh">↻ Refresh now</button><button id="demo">View demo chart</button></div><p class="muted" style="font-size:12px">Automatic candle refresh every 90 seconds while this page is open. Demo mode is synthetic and is never used to train models.</p></div>
+</section>
+<section class="panel full">
+<div class="headingrow"><div><div class="eyebrow">BITCOIN / SPOT · 5-MIN CANDLES</div><h2 id="chart-title">BTC / USDT</h2></div><span class="pill" id="chart-tag">WAITING FOR DATA</span></div>
+<canvas id="chart"></canvas><div class="chart-meta"><span id="chart-note">Loading completed candles...</span><span id="last-closed"></span></div>
+</section>
+<section class="panel full"><div class="headingrow"><div><div class="eyebrow">CROSS-MARKET CONTEXT</div><h2>Altcoin momentum watch</h2></div><small>1-hour change from completed 5-minute bars</small></div><div class="altlist" id="altlist"><span class="muted">Loading altcoin data...</span></div></section>
+</div>
+<p class="footer">Public-data preview only. Source: Binance spot market-data API, if accessible from your browser. Candle timestamps use UTC; the most recent incomplete candle is ignored. Network failures are shown explicitly rather than filled with invented live results. The frontend is static and does not imply that the Python research engine is operating. <a href="https://github.com/bobby-sparkles-dev/fly-bitunix/pull/1" rel="noopener noreferrer" target="_blank">Research source and draft pull request</a>.</p>
+</main>
+<script>
+"use strict";
+const el=(id)=>document.getElementById(id);
+const symbols=["ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","SUIUSDT","LTCUSDT"];
+const base="https://data-api.binance.vision/api/v3/klines";
+let mode="live",lastBars=[];
+function format(n,d=2){return Number.isFinite(n)?n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";}
+function pct(n){return Number.isFinite(n)?(n>=0?"+":"")+format(n,2)+"%":"—";}
+function parseCandles(raw){const now=Date.now();return raw.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).filter(r=>r.t+300000<=now&&Number.isFinite(r.c)&&r.c>0);}
+async function candles(symbol,limit){const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),12000);try{const r=await fetch(base+"?symbol="+encodeURIComponent(symbol)+"&interval=5m&limit="+limit,{signal:ctrl.signal,cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const json=await r.json();if(!Array.isArray(json))throw Error("Invalid exchange response");return parseCandles(json);}finally{clearTimeout(t);}}
+function lastHour(b){return b.length>=13?100*(b[b.length-1].c/b[b.length-13].c-1):NaN;}
+function efficiency(b){if(b.length<13)return NaN;const c=b.slice(-13),travel=c.slice(1).reduce((s,r,i)=>s+Math.abs(r.c-c[i].c),0);return travel?100*Math.abs(c[12].c-c[0].c)/travel:0;}
+function volatility(b){if(b.length<13)return NaN;let values=[];for(let i=b.length-12;i<b.length;i++)values.push(Math.log(b[i].c/b[i-1].c));let mean=values.reduce((a,v)=>a+v,0)/values.length;return Math.sqrt(values.reduce((a,v)=>a+(v-mean)**2,0)/values.length)*100;}
+function volumeRatio(b){if(b.length<25)return NaN;const sum=a=>a.reduce((s,c)=>s+c.v*c.c,0);const prev=sum(b.slice(-24,-12)),current=sum(b.slice(-12));return prev?current/prev:NaN;}
+function setFeed(state,msg){el("feed-status").textContent=msg;el("dot").classList.toggle("live",state==="ok");el("data-quality").textContent=state==="ok"?"Public data loaded":state==="error"?"Unavailable":"Checking";el("data-quality").className=state==="ok"?"green":"status";}
+function renderMetrics(b,breadth){const latest=b[b.length-1];el("price").textContent="$"+format(latest.c,latest.c>=1000?0:2);el("price-status").textContent="Last completed 5m candle";el("efficiency").textContent=format(efficiency(b),0)+"%";el("change").textContent=pct(lastHour(b));el("change").className=lastHour(b)>=0?"green":"red";el("volume").textContent=format(volumeRatio(b),2)+"×";el("volatility").textContent=format(volatility(b),3)+"%";el("breadth").textContent=Number.isFinite(breadth)?format(breadth,0)+"%":"—";}
+function draw(b){
+ const canvas=el("chart"),ctx=canvas.getContext("2d");const ratio=window.devicePixelRatio||1;const width=canvas.clientWidth,height=canvas.clientHeight;canvas.width=width*ratio;canvas.height=height*ratio;ctx.scale(ratio,ratio);ctx.clearRect(0,0,width,height);
+ if(!b.length)return;
+ const plot={l:11,r:width-66,t:14,b:height-27};const hi=Math.max(...b.map(x=>x.h)),lo=Math.min(...b.map(x=>x.l));const gap=Math.max((hi-lo)*.06,.001),high=hi+gap,low=lo-gap;const y=v=>plot.t+(high-v)/(high-low)*(plot.b-plot.t);
+ ctx.font="11px system-ui";ctx.textAlign="right";
+ for(let i=0;i<5;i++){const yy=plot.t+i*(plot.b-plot.t)/4;ctx.strokeStyle="#253044";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(plot.l,yy);ctx.lineTo(plot.r,yy);ctx.stroke();ctx.fillStyle="#8291a9";ctx.fillText(format(high-i*(high-low)/4,0),width-4,yy-4);}
+ const spacing=(plot.r-plot.l)/b.length;const cw=Math.max(1,Math.min(8,spacing*.66));b.forEach((r,i)=>{const x=plot.l+(i+.5)*spacing;const up=r.c>=r.o;ctx.strokeStyle=ctx.fillStyle=up?"#6de4c2":"#fb8293";ctx.beginPath();ctx.moveTo(x,y(r.h));ctx.lineTo(x,y(r.l));ctx.stroke();const top=y(Math.max(r.o,r.c)),bottom=y(Math.min(r.o,r.c));ctx.fillRect(x-cw/2,top,cw,Math.max(1.5,bottom-top));});
+ ctx.fillStyle="#8796ae";ctx.textAlign="left";ctx.fillText(new Date(b[0].t).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"}),plot.l,height-5);ctx.textAlign="right";ctx.fillText(new Date(b[b.length-1].t).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"}),plot.r,height-5);
+}
+function renderAlts(items){el("altlist").innerHTML=items.map(x=>'<div class="coin"><small>'+x.symbol.replace("USDT","")+'</small><strong class="'+(x.change>=0?"green":"red")+'">'+pct(x.change)+'</strong></div>').join("");}
+async function load(){
+ if(mode!=="live")return;
+ el("refresh").disabled=true;setFeed("loading","FETCHING COMPLETED CANDLES");
+ try{
+ const b=await candles("BTCUSDT",140);if(b.length<30)throw Error("Not enough completed BTC candles");
+ const alt=await Promise.allSettled(symbols.map(s=>candles(s,20)));
+ let items=alt.map((x,i)=>x.status==="fulfilled"&&x.value.length>=13?{symbol:symbols[i],change:lastHour(x.value)}:null).filter(Boolean);
+ if(mode!=="live")return;
+ lastBars=b;const breadth=items.length>=5?100*items.filter(x=>x.change>0).length/items.length:NaN;renderMetrics(b,breadth);draw(b);
+ el("chart-tag").textContent="PUBLIC CANDLES";el("chart-note").textContent="Actual completed candles · "+b.length+" bars";el("last-closed").textContent="Last bar: "+new Date(b[b.length-1].t+300000).toLocaleTimeString("en-GB",{timeZone:"UTC",hour:"2-digit",minute:"2-digit"})+" UTC";
+ renderAlts(items);setFeed("ok","PUBLIC DATA · "+items.length+"/10 ALTS");
+ }catch(e){if(mode!=="live")return;setFeed("error","DATA UNAVAILABLE");el("chart-tag").textContent="FEED UNAVAILABLE";el("chart-note").textContent="Exchange request failed: "+(e&&e.message?e.message:"Unknown error")+" · Use demo chart for layout preview";el("price-status").textContent="Data unavailable";el("altlist").innerHTML='<span class="muted">Live altcoin data unavailable in this browser.</span>';}
+ finally{el("refresh").disabled=false;}
+}
+function sample(){const arr=[];const now=Math.floor(Date.now()/300000)*300000-300000;let p=70800;for(let i=0;i<100;i++){const o=p;const jump=Math.sin(i*.28)*42+Math.cos(i*.17)*31+(i>54?11:-2);p=o+jump;arr.push({t:now-(99-i)*300000,o,c:p,h:Math.max(o,p)+26+(i%7)*9,l:Math.min(o,p)-18-(i%5)*9,v:20+(i%9)*3});}return arr;}
+function demo(){mode="demo";setFeed("error","SYNTHETIC DEMO · NOT LIVE");const b=sample();lastBars=b;draw(b);el("chart-title").textContent="BTC / USD · SIMULATED";el("chart-tag").textContent="SYNTHETIC DATA";el("chart-note").textContent="Made-up prices for UI preview only · never real market observations";el("last-closed").textContent="No live price";el("price").textContent="DEMO";el("price-status").textContent="Synthetic candles";for(const id of ["efficiency","change","volume","volatility","breadth"])el(id).textContent="—";el("altlist").innerHTML='<span class="muted">Altcoin readings hidden in demo mode.</span>';el("demo").textContent="Return to live data";}
+el("refresh").addEventListener("click",()=>{mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();});
+el("demo").addEventListener("click",()=>{if(mode==="demo"){mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();}else demo();});
+window.addEventListener("resize",()=>{if(lastBars.length)draw(lastBars);});
+setInterval(()=>{if(mode==="live")load();},90000);
+load();
+</script>
+</body></html>
