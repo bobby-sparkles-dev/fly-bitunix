@@ -251,6 +251,10 @@ def cycle() -> None:
             LOG.info("Model updated %s", train_result["model_id"])
         stage("scoring", 97, "Scoring latest completed BTC candle")
         score = latest_score(features, MODEL_DIR)
+        LOG.info("BTC SCORE model=%s candle=%s age_min=%s status=%s context_complete=%s missing_alt=%s",
+                 score["model_id"], score["timestamp_open_ms"], score["data_age_minutes"],
+                 score["status"], score.get("context_complete"),
+                 score.get("missing_alt_features", []))
         record_forecast(db, score)
         # Settle only from completed candles, then queue a new position strictly
         # after the forecast was actually observed.
