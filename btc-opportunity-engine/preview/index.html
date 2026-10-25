@@ -28,6 +28,7 @@ h1{font-size:clamp(30px,4vw,49px);line-height:1.13;letter-spacing:-.04em;margin:
   <div class="stat"><label>Simulated BTC long profitable?</label><strong id="long-prob">—</strong><em>Experimental net-positive bracket outcome estimate</em></div>
   <div class="stat"><label>Can we trust these scores?</label><strong id="model-reliability">Not yet</strong><em id="last-trained">Needs forward testing</em></div>
  </div>
+ <div class="info" id="research-only-explanation">Research only means the strategy has not passed historical validation. It can still record paper trades; it cannot send real orders.</div>
  <div class="info">A 70/100 market score means the model estimates a 70% chance of its **defined market condition**, not a 70% chance your trade wins. Scores are uncalibrated research estimates. No green light is a trade instruction.</div>
 </section>
 <section class="panel" style="margin-bottom:16px" aria-label="Paper trade results">
@@ -49,6 +50,7 @@ h1{font-size:clamp(30px,4vw,49px);line-height:1.13;letter-spacing:-.04em;margin:
  <div class="headingrow" style="margin-top:18px"><h2>Recent virtual trades</h2></div>
  <div id="paper-history" class="muted">No trades recorded.</div>
 </section>
+<section class="panel" style="margin-bottom:16px"><div class="headingrow"><h2>Historical memory</h2><span class="pill" id="training-window">30-day warm-up</span></div><div class="progress-track"><div class="progress-fill" id="archive-bar"></div></div><div class="progress-extra"><span id="archive-info">Checking archived candles...</span><span>Target: 180 days across 11 assets</span></div><div class="info">The short-window model continues while earlier candles are imported. The 60-day training / 14-day historical test model activates only once sufficient matched history is available.</div></section>
 <section class="panel progress-shell" id="research-progress-panel" aria-live="polite">
  <div class="headingrow"><div><div class="eyebrow">RESEARCH ENGINE · LIVE PROGRESS</div><h2 id="phase-label">Waiting for server status</h2></div><strong id="progress-value" style="font-size:24px">—</strong></div>
  <div class="progress-track" role="progressbar" aria-label="Research cycle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
@@ -179,6 +181,12 @@ load();
       const response=await fetch("/api/state",{cache:"no-store"});
       if(!response.ok)throw Error("HTTP "+response.status);
       const state=await response.json();
+      const archive=state.archive||{};
+      document.getElementById("archive-bar").style.width=Math.max(0,Math.min(100,Number(archive.percent)||0))+"%";
+      setVal("archive-info",archive.minimum_days_across_symbols!=null?
+        archive.minimum_days_across_symbols.toFixed(1)+" days available for the least-covered asset ("+
+        Number(archive.percent||0).toFixed(1)+"% of target)":"Archive coverage not measured yet");
+      setVal("training-window",state.training_window_days===74?"60d train + 14d test":"30-day warm-up");
       const score=state.score;
       const phase=String(state.phase||"STARTING");
       const descriptions={
@@ -213,7 +221,15 @@ load();
       setVal("long-prob",score?asPct(score.p_profitable_btc_long):"—");
       setVal("model-reliability",score&&score.out_of_sample&&score.out_of_sample.meets_research_gate?"Backtest passed":"Unverified");
       setVal("last-trained",state.last_training_at?"Trained "+new Date(state.last_training_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"Not trained yet");
-      const bt=score?.out_of_sample?.filtered_trades;
+      const report=score?.out_of_sample;
+      const bt=report?.filtered_trades;
+      setVal("research-only-explanation",report?
+        ("Research only: "+Number(bt?.trades||0)+" selected historical trades. "+
+         "To pass, the strategy needs at least 30, a win rate ≥55%, positive average net R "+
+         "and better results than the momentum benchmark. "+
+         (report.meets_research_gate?"Historical gate passed, but forward validation is still required.":"This historical gate has NOT passed.")+
+         " Paper simulation can operate independently; real orders are disabled.")
+        :"Research only: no historical validation result is available yet. Paper-only operation continues.");
       setVal("backtest-summary",bt?
          (bt.trades+" selected historical trades · "+(typeof bt.win_rate==="number"?asPct(bt.win_rate):"no win rate")+
           " wins · mean "+(typeof bt.mean_net_r==="number"?bt.mean_net_r.toFixed(2)+" R":"—")+" after assumed costs. Past performance is not a forward result.")
