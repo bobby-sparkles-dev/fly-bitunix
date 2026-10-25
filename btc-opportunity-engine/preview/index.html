@@ -228,6 +228,10 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
   <div class="stat"><label>Simulated BTC long profitable?</label><strong id="long-prob">—</strong><em>Experimental net-positive bracket outcome estimate</em></div>
   <div class="stat"><label>Can we trust these scores?</label><strong id="model-reliability">Not yet</strong><em id="last-trained">Needs forward testing</em></div>
  </div>
+ <div class="info" id="cost-audit-panel" style="background:#fff5e8;border-color:#eedabf">
+  <strong>Why might the BTC-long probability be so low?</strong>
+  <div id="cost-audit-details" style="margin-top:6px">Next model training will compare gross upward movement with profits after the simulated trading costs.</div>
+</div>
  <div class="info" id="research-only-explanation">Research only means the strategy has not passed historical validation. It can still record paper trades; it cannot send real orders.</div>
  <div class="info">A 70/100 market score means the model estimates a 70% chance of its defined market condition, not a 70% chance your trade wins. Scores are uncalibrated research estimates. No green light is a trade instruction.</div>
 </section>
@@ -459,6 +463,20 @@ load();
       setVal("model-reliability",score&&score.out_of_sample&&score.out_of_sample.meets_research_gate?"Backtest passed":"Unverified");
       setVal("last-trained",state.last_training_at?"Trained "+new Date(state.last_training_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"Not trained yet");
       const report=score?.out_of_sample;
+      const audit=report?.cost_audit;
+      if(audit) {
+        setVal("cost-audit-details",
+          "Historical test: "+asPct(audit.test_price_positive_before_costs_fraction)+
+          " of example entries moved upwards before costs, but only "+
+          asPct(audit.test_net_positive_fraction)+" finished profitable with our current stop/target/time-exit rules. "+
+          "Assumed round-trip fee + slippage: about "+
+          Number(audit.round_trip_fee_slippage_bps_approx).toFixed(0)+" basis points. "+
+          "Out of "+Number(report.observations_test||0)+" overlapping historical observations, "+
+          Number(audit.test_both_thresholds_passed_candles||0)+" met both selection thresholds. "+
+          "These percentages describe historical labels, not guaranteed future returns.");
+      } else {
+        setVal("cost-audit-details","We are auditing the last historical test to separate genuine price movement from losses caused by execution costs. Results will appear after the next successful model training.");
+      }
       const bt=report?.filtered_trades;
       setVal("research-only-explanation",report?
         ("Research only: "+Number(bt?.trades||0)+" selected historical trades. "+
