@@ -285,25 +285,42 @@ def cycle() -> None:
             symbols_collected=len(result["candles"]), database_path=str(DB),
             persistent_volume_configured=bool(os.environ.get("RENDER_DISK_MOUNT_PATH") == str(DATA_DIR)),
         )
-        # Lower-priority archival retrieval: never prevents the current model
-        # from being scored or its results from being displayed.
+        # Archive has its own status, counts and durable checkpoint. Any work
+        # acknowledged as saved is backed by Neon before the cycle completes.
         try:
-            archive = backfill(db, pages=5,
-                on_progress=lambda progress: save_state(archive=progress["coverage"]),
-                on_retry=retry)
-            save_state(archive=archive)
-            if archive["rows_added_this_cycle"]:
-                event("info", f"Added {archive['rows_added_this_cycle']} older candle rows to the local archive")
+            save_state(archive_state="BACKFILLING", archive_last_error=None)
+            def archival_progress(progress):
+                save_state(archive=progress["coverage"],
+                           archive_latest_symbol=progress["symbol"],
+                           archive_latest_rows=progress["rows_added"],
+                           archive_last_progress_at=timestamp())
+            archive = backfill(db, pages=5, on_progress=archival_progress, on_retry=retry)
+            saved_rows = int(archive.get("rows_added_this_cycle", 0))
+            if saved_rows > 0 and os.environ.get("DATABASE_URL"):
+                from .persistence import checkpoint
+                checkpoint(DB, MODEL_DIR)
+                _last_checkpoint = time.time()
+                _last_paper_digest = digest
+                save_state(archive_persisted_at=timestamp())
+                LOG.info("ARCHIVE CHECKPOINT OK rows_added=%s min_days=%s",
+                         saved_rows, archive["minimum_days_across_symbols"])
+                event("info", f"Saved {saved_rows} archival candles to PostgreSQL")
+            elif saved_rows > 0:
+                LOG.warning("ARCHIVE NOT DURABLE: %s rows added without database URL", saved_rows)
+            save_state(archive=archive, archive_state="COMPLETE" if archive["archive_complete"] else "ACTIVE",
+                       archive_last_rows=saved_rows, archive_last_success_at=timestamp())
             if archive["archive_complete"] and not archive_before["archive_complete"]:
-                event("info", "180-day archive is complete across all tracked markets")
-            # Archive additions are included in the next regular hourly durable
-            # checkpoint rather than uploading a large DB snapshot every cycle.
-        except RateLimited:
-            # A venue-wide throttle applies to the entire worker, not merely
-            # archive requests: the outer worker parks until the retry deadline.
+                event("info", "180-day archive complete across all tracked markets")
+        except RateLimited as archive_rate:
+            LOG.warning("ARCHIVE RATE LIMITED: %s", archive_rate)
+            save_state(archive_state="RATE_LIMITED", archive_last_error=str(archive_rate),
+                       archive_last_failure_at=timestamp())
             raise
         except Exception as archive_error:
-            event("warning", "Archive backfill paused: " + str(archive_error)[:220])
+            LOG.exception("ARCHIVE BACKFILL FAILED")
+            save_state(archive_state="ERROR", archive_last_error=str(archive_error)[:300],
+                       archive_last_failure_at=timestamp())
+            event("error", "Archive backfill failed: " + str(archive_error)[:220])
 
 
 def heartbeat() -> None:
