@@ -212,6 +212,16 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
   button, .progress-fill { transition: none; }
 }
 </style>
+<script>
+window.addEventListener("error",function(e){
+  var box=document.getElementById("connection-status");
+  if(box)box.textContent="Dashboard script error: "+String(e.message||"unknown")+". Please use Refresh after reloading this page.";
+});
+window.addEventListener("unhandledrejection",function(e){
+  var box=document.getElementById("connection-status");
+  if(box)box.textContent="Dashboard connection error: "+String(e.reason?.message||e.reason||"unknown")+".";
+});
+</script>
 </head>
 <body>
 <main>
@@ -219,6 +229,9 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 <h1>Trade less. <span style="color:var(--mint)">Know when to look.</span></h1>
 <p class="intro">We watch Bitcoin and ten other coins to identify when BTC long trades might work better. Here's what the engine is doing, what it predicts, and how its paper trades are actually performing.</p>
 <div class="callout" role="status"><strong>Research preview, not a trading signal.</strong> Green-light trading decisions are deliberately disabled until we have real forward-test evidence. Historical win rate: not measured.</div>
+<div id="connection-status" class="info" role="status" style="margin:0 0 14px;background:#eaf9f0;border-color:#b8e4ca">
+  Starting dashboard… The research database is stored separately and is not reset by closing this page.
+</div>
 <div id="saved-data-banner" class="info" role="status" style="margin:0 0 18px;background:#fff4e4;border-color:#e8cda6;font-size:13px">Connecting to the research service. Saved readings will appear here, including their age, even if the market feed is temporarily stale.</div>
 <section class="panel" style="margin-bottom:16px" aria-label="Research explained">
  <div class="headingrow"><h2>What is the engine doing?</h2><span class="pill" id="engine-plain-state">Starting</span></div>
@@ -305,7 +318,7 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 const el=(id)=>document.getElementById(id);
 const symbols=["ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","TRXUSDT","LTCUSDT"];
 let base="https://data-api.binance.vision/api/v3/klines";
-let mode="live",lastBars=[],lastMarketCheckAt=null;
+let mode="live",lastBars=[],lastMarketCheckAt=null,marketRequestNumber=0,activeMarketController=null;
 function format(n,d=2){return Number.isFinite(n)?n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";}
 function pct(n){return Number.isFinite(n)?(n>=0?"+":"")+format(n,2)+"%":"—";}
 function parseCandles(raw){const now=Date.now();return raw.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).filter(r=>r.t+300000<=now&&Number.isFinite(r.c)&&r.c>0);}
@@ -328,7 +341,13 @@ function draw(b){
 function renderAlts(items){el("altlist").innerHTML=items.map(x=>'<div class="coin"><small>'+x.symbol.replace("USDT","")+'</small><strong class="'+(x.change>=0?"green":"red")+'">'+pct(x.change)+'</strong></div>').join("");}
 async function load(){
  if(mode!=="live")return;
- el("refresh").disabled=true;
+ const requestId=++marketRequestNumber;
+ if(activeMarketController)activeMarketController.abort();
+ const newController=new AbortController();
+ activeMarketController=newController;
+ const stateNode=el("connection-status");
+ if(stateNode)stateNode.textContent="Checking the saved BTC market data… The Refresh button remains available; tap it again to retry.";
+
  const attemptedAt=new Date();
  if(el("refresh-result")) el("refresh-result").textContent="Checking saved BTC candles at "+attemptedAt.toLocaleTimeString("en-GB")+"…";
  setFeed("loading","CHECKING SAVED CANDLES");
@@ -336,12 +355,12 @@ async function load(){
   const staticPreview=["raw.githack.com","rawgit.com"].includes(location.hostname);
   let data, b, items, stale=false, ageMinutes=null, sourceLabel;
   if(!staticPreview){
-    const ctrl=new AbortController();
-    const timer=setTimeout(()=>ctrl.abort(),65000);
+    const ctrl=newController;
+    const timer=setTimeout(()=>ctrl.abort(),35000);
     const waking=setTimeout(()=>{
       if(el("refresh-result"))el("refresh-result").textContent=
         "The free hosting service may be waking up. Still checking saved candles…";
-    },12000);
+    },7000);
     try{
       const response=await fetch("/api/market",{signal:ctrl.signal,cache:"no-store"});
       data=await response.json();
@@ -363,11 +382,14 @@ async function load(){
       ?{symbol:symbols[i],change:lastHour(result.value)}:null).filter(Boolean);
     sourceLabel="Static preview";
   }
-  if(mode!=="live")return;
+  if(mode!=="live"||requestId!==marketRequestNumber)return;
   lastBars=b;
   const breadth=items.length>=5?100*items.filter(x=>x.change>0).length/items.length:NaN;
   renderMetrics(b,breadth);draw(b);
   renderAlts(items);
+  try { localStorage.setItem("btc-signal-last-chart-v2",JSON.stringify({
+    at:Date.now(),venue:sourceLabel,btc:b,alts:items
+  })); } catch(storageError) { /* optional browser-only cache */ }
   const updatedAt=new Date(b[b.length-1].t+300000).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"});
   el("last-closed").textContent="Last completed: "+updatedAt+" UTC";
   el("chart-tag").textContent=stale?"STORED DATA STALE":"SAVED EXCHANGE CANDLES";
@@ -375,6 +397,9 @@ async function load(){
     " candles · "+b.length+" BTC bars"+(Number.isFinite(ageMinutes)?" · last bar "+ageMinutes.toFixed(1)+" min old":"");
   el("price-status").textContent=stale?"Stored price is outdated":"Price from last completed saved candle";
   setFeed(stale?"stale":"ok",stale?"SAVED CANDLES OUTDATED":"BACKEND DATA · "+items.length+"/10 ALTS");
+  if(stateNode)stateNode.textContent=stale
+    ?"Connected to research server. Latest stored BTC candle is old; not a live price."
+    :"Connected to the research server. BTC and "+items.length+" altcoin markets loaded.";
   lastMarketCheckAt=Date.now();
   const checked=attemptedAt.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   if(el("refresh-result")) el("refresh-result").textContent="Checked "+checked+" · Latest saved candle "+updatedAt+
@@ -385,8 +410,13 @@ async function load(){
    " minutes old. Showing the last saved prices, not live prices. Refresh rechecks stored data; the backend imports new candles independently.":
    "Saved market data is available. Latest BTC candle: "+updatedAt+" UTC. Scores and charts are research-only.";
  }catch(e){
-   if(mode!=="live")return;
-   setFeed("error","CANNOT REACH SAVED MARKET DATA");
+   if(mode!=="live"||requestId!==marketRequestNumber)return;
+   const desc=e?.name==="AbortError"
+      ?"The request timed out while the free server was responding. Tap Refresh again."
+      :(e?.message||String(e));
+   if(stateNode)stateNode.textContent="The saved market-data request failed: "+desc+
+     " The database is separate and this does not mean its records were erased.";
+   setFeed("error",lastBars.length?"SHOWING SAVED CHART":"MARKET FEED UNAVAILABLE");
    if(el("refresh-result"))el("refresh-result").textContent="Checked "+
      attemptedAt.toLocaleTimeString("en-GB")+" · Market-data request failed: "+(e?.message||String(e));
    if(el("saved-data-banner"))el("saved-data-banner").textContent=lastBars.length?
@@ -399,9 +429,28 @@ async function load(){
       (e&&e.message?e.message:"Unknown error")+". Research status above may still be working.";
    el("price-status").textContent=lastBars.length?"Last saved value; refresh failed":"Stored candle data unavailable";
    el("altlist").innerHTML='<span class="muted">Stored altcoin candles unavailable. No fabricated live prices shown.</span>';
- }finally{el("refresh").disabled=false;}
+ }finally{
+   if(requestId===marketRequestNumber)activeMarketController=null;
+ }
 }
 function sample(){const arr=[];const now=Math.floor(Date.now()/300000)*300000-300000;let p=70800;for(let i=0;i<100;i++){const o=p;const jump=Math.sin(i*.28)*42+Math.cos(i*.17)*31+(i>54?11:-2);p=o+jump;arr.push({t:now-(99-i)*300000,o,c:p,h:Math.max(o,p)+26+(i%7)*9,l:Math.min(o,p)-18-(i%5)*9,v:20+(i%9)*3});}return arr;}
+function showLocalMarketCache(){
+  try{
+    const cached=JSON.parse(localStorage.getItem("btc-signal-last-chart-v2")||"null");
+    if(!cached||!Array.isArray(cached.btc)||cached.btc.length<30)return;
+    lastBars=cached.btc;
+    draw(cached.btc);
+    renderMetrics(cached.btc,NaN);
+    renderAlts(Array.isArray(cached.alts)?cached.alts:[]);
+    setFeed("stale","PREVIOUSLY SAVED · NOT LIVE");
+    el("chart-tag").textContent="BROWSER CACHE · NOT LIVE";
+    el("price-status").textContent="Last chart saved in this browser, not a current price";
+    el("chart-note").textContent="Historical browser copy; verifying latest server data";
+    const stamp=new Date(cached.at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+    el("connection-status").textContent="Showing previously viewed candles from "+stamp+
+      ". They may be old. Checking the server for updates…";
+  }catch(e){ /* browser storage may be disabled */ }
+}
 function demo(){mode="demo";setFeed("error","SYNTHETIC DEMO · NOT LIVE");const b=sample();lastBars=b;draw(b);el("chart-title").textContent="BTC / USD · SIMULATED";el("chart-tag").textContent="SYNTHETIC DATA";el("chart-note").textContent="Made-up prices for UI preview only · never real market observations";el("last-closed").textContent="No live price";el("price").textContent="DEMO";el("price-status").textContent="Synthetic candles";for(const id of ["efficiency","change","volume","volatility","breadth"])el(id).textContent="—";el("altlist").innerHTML='<span class="muted">Altcoin readings hidden in demo mode.</span>';el("demo").textContent="Return to live data";}
 el("refresh").addEventListener("click",()=>{
  mode="live";el("chart-title").textContent="BTC / USDT";
@@ -412,6 +461,7 @@ el("refresh").addEventListener("click",()=>{
 el("demo").addEventListener("click",()=>{if(mode==="demo"){mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();}else demo();});
 window.addEventListener("resize",()=>{if(lastBars.length)draw(lastBars);});
 setInterval(()=>{if(mode==="live")load();},90000);
+showLocalMarketCache();
 load();
 </script>
 <script>
@@ -452,10 +502,13 @@ load();
       item.append(left,right);history.append(item);
     }
   }
+  let statusPending=false;
   async function tick(){
+    if(statusPending)return;
+    statusPending=true;
     try{
       const ctrl=new AbortController();
-      const timeout=setTimeout(()=>ctrl.abort(),65000);
+      const timeout=setTimeout(()=>ctrl.abort(),35000);
       let response;
       try{response=await fetch("/api/state",{cache:"no-store",signal:ctrl.signal});}
       finally{clearTimeout(timeout);}
@@ -621,10 +674,14 @@ load();
            (state.message||"Checking market data.")+" "+
            (state.last_error?"Error: "+state.last_error:"")+" Real trading is disabled.";
       }
-    }catch(e){setText("phase-label","Research API unreachable");setText("live-errors","Cannot retrieve live progress: "+(e.message||String(e)));if(callout)callout.textContent="Research API currently unreachable. Dashboard market candles can still be read separately; no trained signals are available.";}
+    }catch(e){
+      setText("phase-label","Research API unreachable");
+      setText("live-errors","Cannot retrieve research progress: "+(e.message||String(e)));
+      if(callout)callout.textContent="Research status unavailable. Your database has not necessarily been affected; try Refresh.";
+    } finally {statusPending=false;}
   }
   window.refreshResearchStatus=tick;
-  await tick();setInterval(tick,10000);
+  await tick();setInterval(tick,15000);
 })();
 </script>
 </body></html>
