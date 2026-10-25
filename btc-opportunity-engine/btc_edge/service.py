@@ -224,8 +224,13 @@ def cycle() -> None:
         candles = load_candles(db, days=76 if extended_ready else 45)
         features = build_features(candles)
         stage("features", 85, "Features calculated")
-        trained = MODEL_DIR.joinpath("latest.json").exists()
-        if not trained or time.time() - _last_train >= TRAIN_INTERVAL_SECONDS:
+        latest_file = MODEL_DIR / "latest.json"
+        trained = latest_file.exists()
+        # Re-evaluate existing historical data once when a new audit is added.
+        # Otherwise preserve the regular six-hour retraining cadence.
+        requires_cost_audit = trained and "cost_audit" not in json.loads(
+            latest_file.read_text()).get("report", {})
+        if not trained or requires_cost_audit or time.time() - _last_train >= TRAIN_INTERVAL_SECONDS:
             save_state(phase="TRAINING", message="Fitting models and testing past-only holdout...")
             stage("training", 88, "Preparing future outcome labels")
             active_settings = Settings(training_days=74, test_days=14, half_life_days=21) if extended_ready else Settings()
