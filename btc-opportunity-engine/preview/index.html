@@ -337,12 +337,16 @@ async function load(){
   let data, b, items, stale=false, ageMinutes=null, sourceLabel;
   if(!staticPreview){
     const ctrl=new AbortController();
-    const timer=setTimeout(()=>ctrl.abort(),12000);
+    const timer=setTimeout(()=>ctrl.abort(),65000);
+    const waking=setTimeout(()=>{
+      if(el("refresh-result"))el("refresh-result").textContent=
+        "The free hosting service may be waking up. Still checking saved candles…";
+    },12000);
     try{
       const response=await fetch("/api/market",{signal:ctrl.signal,cache:"no-store"});
       data=await response.json();
       if(!response.ok)throw Error(data?.details||data?.error||"Market API returned HTTP "+response.status);
-    }finally{clearTimeout(timer);}
+    }finally{clearTimeout(timer);clearTimeout(waking);}
     b=parseCandles(data.symbols?.BTCUSDT||[]);
     if(b.length<30)throw Error("Research database has fewer than 30 completed BTC candles");
     items=symbols.map(symbol=>{
@@ -450,7 +454,11 @@ load();
   }
   async function tick(){
     try{
-      const response=await fetch("/api/state",{cache:"no-store"});
+      const ctrl=new AbortController();
+      const timeout=setTimeout(()=>ctrl.abort(),65000);
+      let response;
+      try{response=await fetch("/api/state",{cache:"no-store",signal:ctrl.signal});}
+      finally{clearTimeout(timeout);}
       if(!response.ok)throw Error("HTTP "+response.status);
       const state=await response.json();
       const archive=state.archive||{};
