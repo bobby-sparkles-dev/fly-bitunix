@@ -153,6 +153,44 @@ def evaluate_matured(db: sqlite3.Connection, candles: dict, features) -> dict:
     }
 
 
+
+def decision_diagnostics(db: sqlite3.Connection, score: dict, ledger: dict) -> dict:
+    """Explain observed predictions and the *current* paper entry gate.
+
+    This is an operational explanation, NOT evidence of model accuracy.
+    """
+    settings = Settings()
+    pm = float(score["p_tradeable"])
+    pl = float(score["p_profitable_btc_long"])
+    total, eligible = db.execute("""
+      SELECT COUNT(*), COALESCE(SUM(candidate), 0) FROM live_forecasts
+    """).fetchone()
+    reasons = []
+    if score["status"] == "STALE_DATA":
+        reasons.append("Market data is stale")
+    if pm < settings.tradeability_threshold:
+        reasons.append(f"Market score {pm:.1%} is below {settings.tradeability_threshold:.0%}")
+    if pl < settings.long_threshold:
+        reasons.append(f"BTC long score {pl:.1%} is below {settings.long_threshold:.0%}")
+    if ledger["queued"] or ledger["open"]:
+        reasons.append("One paper trade is already queued/open")
+    if not reasons:
+        reasons.append("Both score thresholds met; paper entry evaluation eligible")
+    return {
+        "mode": "PAPER_ONLY",
+        "evaluated_candles": int(total),
+        "score_qualified_candles": int(eligible),
+        "market_threshold": settings.tradeability_threshold,
+        "long_threshold": settings.long_threshold,
+        "current_market_score": round(pm, 4),
+        "current_long_score": round(pl, 4),
+        "eligible_now": bool(score.get("candidate")) and score["status"] != "STALE_DATA",
+        "explanations": reasons,
+        "last_decision_open_ms": score["timestamp_open_ms"],
+        "note": "An eligible market does not guarantee a fill or profit."
+    }
+
+
 def cycle() -> None:
     """Fetch most recent closed bars, occasionally retrain, log forward scores."""
     global _last_train, _last_checkpoint, _last_paper_digest
@@ -208,6 +246,7 @@ def cycle() -> None:
             if queue_signal(db, score, current_atr):
                 event("info", "Queued a paper BTC long for the next full five-minute candle")
         ledger = paper_summary(db)
+        decisions = decision_diagnostics(db, score, ledger)
         forward = evaluate_matured(db, candles, features)
         stage("complete", 100, "Research cycle complete")
         event("info", f"Research cycle finished · {score['status']}")
@@ -230,6 +269,7 @@ def cycle() -> None:
                      if score["status"] != "STALE_DATA" else "Market data too old; forecasts suspended."),
             updated_at=timestamp(), last_error=None, score=score,
             forward_observations=forward, paper_trades=ledger,
+            decision_diagnostics=decisions,
             last_training_at=json.loads((MODEL_DIR / "latest.json").read_text()).get("trained_at"),
             ingest_completed_at=result["completed_at"],
             symbols_collected=len(result["candles"]), database_path=str(DB),
