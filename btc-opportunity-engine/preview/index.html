@@ -437,6 +437,13 @@ load();
       setVal("training-window",state.training_window_days===74?"60d train + 14d test":"30-day warm-up");
       const score=state.score;
       const phase=String(state.phase||"STARTING");
+      const signalOpen=Number(score?.timestamp_open_ms);
+      const signalAgeMs=Date.now()-(signalOpen+300000);
+      const scoreFresh=Boolean(score && Number.isFinite(signalOpen) && signalOpen>0 &&
+        signalAgeMs>=0 && signalAgeMs<=15*60000 &&
+        !["ERROR","RATE_LIMITED","STALE_DATA"].includes(phase));
+      const signalAgeMinutes=Number.isFinite(signalAgeMs)?
+        Math.max(0,Math.round(signalAgeMs/60000)):null;
       const descriptions={
         STARTING:"Starting the research service and checking its stored data.",
         COLLECTING:"Downloading recent BTC and altcoin candles.",
@@ -458,13 +465,15 @@ load();
         ?"Next permitted retry: "+prettyTime(state.retry_at)+
         (deadline>Date.now()?" · "+Math.ceil((deadline-Date.now())/60000)+" min remaining":" · retry due")
         :"");
-      if(phase==="RATE_LIMITED"||phase==="ERROR"||phase==="STALE_DATA") {
-         setVal("market-prob","—"); setVal("long-prob","—");
-      }
       setVal("plain-message",descriptions[phase]||"Checking research status.");
-      setVal("plain-detail",state.message||"Research-only: no real orders.");
-      setVal("market-prob",score?asPct(score.p_tradeable):"—");
-      setVal("long-prob",score?asPct(score.p_profitable_btc_long):"—");
+      setVal("plain-detail",score && !scoreFresh ?
+        (state.message||"")+". Latest stored model reading is "+(signalAgeMinutes??"?")+
+        " minutes old and must not be treated as a current signal." :
+        (state.message||"Research-only: no real orders."));
+      // Unlike previous versions, stale scores must NEVER be re-rendered
+      // by unconditional updates lower down in this handler.
+      setVal("market-prob",scoreFresh?asPct(score.p_tradeable):"—");
+      setVal("long-prob",scoreFresh?asPct(score.p_profitable_btc_long):"—");
       setVal("model-reliability",score&&score.out_of_sample&&score.out_of_sample.meets_research_gate?"Backtest passed":"Unverified");
       setVal("last-trained",state.last_training_at?"Trained "+new Date(state.last_training_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"Not trained yet");
       const report=score?.out_of_sample;
@@ -554,7 +563,7 @@ load();
       const desc=label?.nextElementSibling;
       if(desc)desc.textContent=state.message||"Awaiting research worker";
       const scoreLabel=document.querySelector(".score");
-      if(scoreLabel)scoreLabel.textContent=score&&state.phase==="RUNNING"?Math.round(100*score.p_tradeable)+"/100":"—";
+      if(scoreLabel)scoreLabel.textContent=scoreFresh&&state.phase==="RUNNING"?Math.round(100*score.p_tradeable)+"/100":"—";
       const rows=[...document.querySelectorAll(".row")];
       for(const row of rows){
         const labelText=row.firstElementChild?.textContent||"";
@@ -565,13 +574,14 @@ load();
       }
       if(callout){
         const f=state.forward_observations;
-        callout.textContent=state.phase==="RUNNING"
-         ?"Paper research active. Market tradeability estimate: "+(score?Math.round(100*score.p_tradeable)+"%":"unavailable")+
-          "; long bracket outcome estimate: "+(score?Math.round(100*score.p_profitable_btc_long)+"%":"unavailable")+
+        callout.textContent=state.phase==="RUNNING" && scoreFresh
+         ?"Paper research active. Market tradeability estimate: "+Math.round(100*score.p_tradeable)+"%"+
+          "; long bracket outcome estimate: "+Math.round(100*score.p_profitable_btc_long)+"%"+
           ". "+(f?"Forward observations evaluated: "+f.evaluated+"; qualified candidates evaluated: "+f.candidates_evaluated+". ":"")+
           "These are uncalibrated experimental model outputs, NOT trade approvals or verified win rates."
-         :"Research engine: "+(state.message||"Starting")+" "+
-           (state.last_error?"Error: "+state.last_error:"")+" No trades can be placed.";
+         :"Current BTC model scores withheld: "+(score?"last scored candle "+(signalAgeMinutes??"?")+" minutes old. ":"")+
+           (state.message||"Checking market data.")+" "+
+           (state.last_error?"Error: "+state.last_error:"")+" Real trading is disabled.";
       }
     }catch(e){setText("phase-label","Research API unreachable");setText("live-errors","Cannot retrieve live progress: "+(e.message||String(e)));if(callout)callout.textContent="Research API currently unreachable. Dashboard market candles can still be read separately; no trained signals are available.";}
   }
