@@ -152,12 +152,14 @@ def cycle() -> None:
     from .market import ingest
     from .features import load_candles, build_features
     from .learning import train, latest_score
+    from .paper import install as install_paper, settle as settle_paper, queue_signal, summary as paper_summary
 
     save_state(phase="COLLECTING", message="Downloading completed exchange candles...",
                last_error=None)
     stage("collecting", 0, "Starting candle collection")
     with connect(DB) as db:
         ensure_history(db)
+        install_paper(db)
         has_history = db.execute("SELECT COUNT(*) FROM candles WHERE symbol='BTCUSDT'").fetchone()[0]
         days = 37 if has_history < 500 else 2
         event("info", f"Beginning {days}-day candle refresh")
@@ -191,6 +193,14 @@ def cycle() -> None:
         stage("scoring", 97, "Scoring latest completed BTC candle")
         score = latest_score(features, MODEL_DIR)
         record_forecast(db, score)
+        # Settle only from completed candles, then queue a new position strictly
+        # after the forecast was actually observed.
+        settle_paper(db, candles["BTCUSDT"])
+        if score.get("status") != "STALE_DATA":
+            current_atr = float(features.loc[int(score["timestamp_open_ms"]), "atr_at_decision"])
+            if queue_signal(db, score, current_atr):
+                event("info", "Queued a paper BTC long for the next full five-minute candle")
+        ledger = paper_summary(db)
         forward = evaluate_matured(db, candles, features)
         stage("complete", 100, "Research cycle complete")
         event("info", f"Research cycle finished · {score['status']}")
@@ -199,9 +209,11 @@ def cycle() -> None:
             message=("Collecting observations and issuing paper-only forecasts."
                      if score["status"] != "STALE_DATA" else "Market data too old; forecasts suspended."),
             updated_at=timestamp(), last_error=None, score=score,
-            forward_observations=forward, ingest_completed_at=result["completed_at"],
+            forward_observations=forward, paper_trades=ledger,
+            last_training_at=json.loads((MODEL_DIR / "latest.json").read_text()).get("trained_at"),
+            ingest_completed_at=result["completed_at"],
             symbols_collected=len(result["candles"]), database_path=str(DB),
-            persistent_volume_configured=(os.environ.get("RAILWAY_VOLUME_MOUNT_PATH") == str(DATA_DIR)),
+            persistent_volume_configured=bool(os.environ.get("RENDER_DISK_MOUNT_PATH") == str(DATA_DIR)),
         )
 
 
