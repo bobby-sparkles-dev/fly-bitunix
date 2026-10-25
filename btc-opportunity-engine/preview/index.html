@@ -43,7 +43,7 @@ h1{font-size:clamp(30px,4vw,49px);line-height:1.13;letter-spacing:-.04em;margin:
  <div style="margin-top:16px" class="eyebrow">Evidence gathered toward first 100 settled paper trades</div>
  <div class="progress-track" style="margin-top:8px"><div class="progress-fill" id="evidence-fill" style="width:0%"></div></div>
  <div class="progress-extra"><span id="evidence-text">0 of 100 settled</span><span id="paper-availability">First results appear after a valid paper entry closes</span></div>
- <div class="info" id="active-paper-info">No open paper trade. No trades are executed on an exchange.</div>
+ <div class="info" id="paper-decision-info">Checking why no trade has qualified…</div><div class="info" id="active-paper-info">No open paper trade. No trades are executed on an exchange.</div>
  <div class="headingrow" style="margin-top:20px"><h2>Historical backtest, kept separate</h2><small>Past data, not forward proof</small></div>
  <div id="backtest-summary" class="muted">Waiting for first historical evaluation.</div>
  <div class="headingrow" style="margin-top:18px"><h2>Recent virtual trades</h2></div>
@@ -219,6 +219,15 @@ load();
           " wins · mean "+(typeof bt.mean_net_r==="number"?bt.mean_net_r.toFixed(2)+" R":"—")+" after assumed costs. Past performance is not a forward result.")
          :"No historical evaluation available.");
       showPaper(state);
+      const diag=state.decision_diagnostics;
+      if(diag){
+        const explanation=(diag.explanations||[]).join("; ");
+        setVal("paper-decision-info","Trade filter: "+explanation+". "+
+          Number(diag.evaluated_candles||0)+" completed-candle forecasts logged; "+
+          Number(diag.score_qualified_candles||0)+" met both thresholds. "+
+          "Entry requires market ≥"+Math.round(100*diag.market_threshold)+
+          "% and BTC long ≥"+Math.round(100*diag.long_threshold)+"%.");
+      }else setVal("paper-decision-info","Awaiting first completed research scoring cycle. No paper-trade evidence yet.");
       const prog=state.progress||{};
       const p=Number.isFinite(Number(prog.percent))?Math.max(0,Math.min(100,Number(prog.percent))):0;
       setText("phase-label",String(state.phase||"STARTING")+" · "+String(prog.stage||"initialising"));
