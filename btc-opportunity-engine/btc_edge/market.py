@@ -58,29 +58,38 @@ def ingest(db, days: int = 37, symbols=SYMBOLS, now_ms: int | None = None,
     total_slots_per_symbol = max(1, (last_complete_end - first_ms) // INTERVAL_MS + 1)
     scanned_slots = 0
     ingested_rows = 0
+    # Estimate actual work from checkpoints, not the full historical window.
+    starts = {}
+    for symbol in symbols:
+        row = db.execute("SELECT MAX(open_time) FROM candles WHERE symbol=?", (symbol,)).fetchone()
+        latest = int(row[0]) if row and row[0] is not None else None
+        # Replay one completed candle on incremental passes to repair partial writes.
+        starts[symbol] = max(first_ms, latest - INTERVAL_MS) if latest is not None else first_ms
+    pending_slots = {symbol: max(0, (last_complete_end - starts[symbol]) // INTERVAL_MS + 1)
+                     for symbol in symbols}
+    total_slots = max(1, sum(pending_slots.values()))
 
     def report(symbol: str, symbol_number: int, symbol_scanned: int,
                completed_symbols: int) -> None:
         if on_progress is None:
             return
-        overall_scanned = min(total_symbols * total_slots_per_symbol,
-                              scanned_slots + symbol_scanned)
+        overall_scanned = min(total_slots, scanned_slots + symbol_scanned)
         on_progress({
             "current_symbol": symbol, "symbol_number": symbol_number,
             "total_symbols": total_symbols, "completed_symbols": completed_symbols,
             "scanned_slots": overall_scanned,
-            "total_slots": total_symbols * total_slots_per_symbol,
+            "total_slots": total_slots,
             "symbol_scanned_slots": symbol_scanned,
-            "symbol_total_slots": total_slots_per_symbol,
+            "symbol_total_slots": pending_slots[symbol],
             "ingested_rows": ingested_rows,
-            "percent": round(100.0 * overall_scanned /
-                             max(1, total_symbols * total_slots_per_symbol), 1),
+            "percent": round(100.0 * overall_scanned / total_slots, 1),
         })
 
     for symbol_number, symbol in enumerate(symbols, 1):
         if not symbol.endswith("USDT"):
             raise ValueError(f"Unexpected quote asset: {symbol}")
-        next_ms = first_ms
+        next_ms = starts[symbol]
+        symbol_slots = pending_slots[symbol]
         saved = 0
         report(symbol, symbol_number, 0, symbol_number - 1)
         while next_ms <= last_complete_end:
@@ -97,10 +106,10 @@ def ingest(db, days: int = 37, symbols=SYMBOLS, now_ms: int | None = None,
                 raise RuntimeError(f"Non-advancing market data response for {symbol}")
             next_ms = advanced_ms
             report(symbol, symbol_number,
-                   min(total_slots_per_symbol, (next_ms - first_ms) // INTERVAL_MS),
+                   min(symbol_slots, max(0, (next_ms - starts[symbol]) // INTERVAL_MS)),
                    symbol_number - 1)
-            time.sleep(0.07)
-        scanned_slots += total_slots_per_symbol
+            time.sleep(0.35)
+        scanned_slots += symbol_slots
         report(symbol, symbol_number, 0, symbol_number)
         results[symbol] = saved
     return {"completed_at": datetime.fromtimestamp(now_ms / 1000, timezone.utc).isoformat(), "candles": results}
