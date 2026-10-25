@@ -204,6 +204,10 @@ def cycle() -> None:
         forward = evaluate_matured(db, candles, features)
         stage("complete", 100, "Research cycle complete")
         event("info", f"Research cycle finished · {score['status']}")
+        if os.environ.get("DATABASE_URL"):
+            from .persistence import checkpoint
+            checkpoint(DB)
+            event("info", "Saved durable PostgreSQL research checkpoint")
         save_state(
             phase="RUNNING" if score["status"] != "STALE_DATA" else "STALE_DATA",
             message=("Collecting observations and issuing paper-only forecasts."
@@ -269,6 +273,16 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if os.environ.get("DATABASE_URL"):
+        try:
+            from .persistence import restore
+            if restore(DB):
+                LOG.info("Restored SQLite research from durable PostgreSQL checkpoint")
+            else:
+                LOG.info("PostgreSQL database connected: no existing checkpoint")
+        except Exception:
+            LOG.exception("PostgreSQL restore failed; refusing to proceed unsafely")
+            raise
     threading.Thread(target=worker, name="research-worker", daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     LOG.info("BTC research dashboard listening on 0.0.0.0:%s, DATA_DIR=%s", PORT, DATA_DIR)
