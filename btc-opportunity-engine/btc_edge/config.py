@@ -10,7 +10,7 @@ SYMBOLS = (
 @dataclass(frozen=True)
 class Settings:
     horizon_bars: int = 6  # 30 minutes
-    training_days: int = 30  # train plus chronologically held-out test
+    training_days: int = 30  # short warm-up model; 74d (60+14) when archive ready
     test_days: int = 7
     half_life_days: int = 14
     stop_atr_multiple: float = 1.0
