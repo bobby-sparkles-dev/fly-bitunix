@@ -157,30 +157,71 @@ def train(features: pd.DataFrame, outcomes: pd.DataFrame, settings: Settings, ou
 
 
 def latest_score(features: pd.DataFrame, model_dir: str | Path, now_ms: int | None = None) -> dict:
+    """Score the newest usable BTC candle, even when optional alt features lag.
+
+    A missing alt feature is imputed to its TRAINING-SET mean (neutral in
+    standardized units), and blocks a paper trade. We never silently use an
+    old fully-populated feature row and pretend that was today's market.
+    """
     path = Path(model_dir) / "latest.json"
     model = json.loads(path.read_text())
     now_ms = now_ms or int(datetime.now(timezone.utc).timestamp() * 1000)
-    expected_cols = model["models"]["tradeable"]["features"]
-    rows = features.dropna(subset=expected_cols)
-    if rows.empty:
-        raise ValueError("No complete feature vector available")
-    t = int(rows.index.max())
-    # The most recent candle must be closed; scoring latency measured from candle close.
+    market_model = model["models"]["tradeable"]
+    long_model = model["models"]["long_win"]
+    expected_cols = market_model["features"]
+
+    # BTC features and calendar terms are indispensable; altcoin features
+    # provide context but may have a slightly delayed exchange candle.
+    essential = [col for col in expected_cols if col.startswith("btc_")
+                 or col in ("hour_sin", "hour_cos", "weekend")]
+    valid_btc = features.dropna(subset=essential).sort_index()
+    if valid_btc.empty:
+        raise ValueError("No complete BTC feature vector available")
+    row = valid_btc.iloc[-1:][expected_cols].copy()
+    t = int(row.index[-1])
+    missing_alt_features = [col for col in expected_cols
+                            if col not in essential and
+                            not np.isfinite(float(row.iloc[0][col]))]
+    # Use the trained mean as a neutral placeholder for displaying a
+    # diagnostic forecast. A paper entry must have ALL context intact.
+    def neutralized(bundle: dict) -> pd.DataFrame:
+        values = row[bundle["features"]].copy()
+        for col, mean in zip(bundle["features"], bundle["means"]):
+            if not np.isfinite(float(values.iloc[0][col])):
+                if col in essential:
+                    raise ValueError("Essential BTC feature unexpectedly absent")
+                values.at[t, col] = float(mean)
+        return values
+
     age_min = (now_ms - (t + INTERVAL_MS)) / 60_000
     settings = model["settings"]
-    p_market = float(predict(model["models"]["tradeable"], rows.iloc[-1:])[0])
-    p_long = float(predict(model["models"]["long_win"], rows.iloc[-1:])[0])
-    candidate = (p_market >= settings["tradeability_threshold"]
-                 and p_long >= settings["long_threshold"])
+    p_market = float(predict(market_model, neutralized(market_model))[0])
+    p_long = float(predict(long_model, neutralized(long_model))[0])
+    context_complete = not missing_alt_features
+    candidate = bool(context_complete and
+        p_market >= settings["tradeability_threshold"] and
+        p_long >= settings["long_threshold"])
     if age_min < 0 or age_min > settings["max_data_staleness_minutes"]:
         status = "STALE_DATA"
+    elif not context_complete:
+        status = "PARTIAL_CONTEXT"
     elif not model["report"]["meets_research_gate"]:
         status = "RESEARCH_ONLY"
     elif candidate:
         status = "PAPER_CANDIDATE"
     else:
         status = "WAIT"
-    return {"model_id": model["model_id"], "timestamp_open_ms": t,
-            "data_age_minutes": round(age_min, 2), "p_tradeable": round(p_market, 4),
-            "p_profitable_btc_long": round(p_long, 4), "candidate": candidate,
-            "status": status, "mode": "PAPER_ONLY", "out_of_sample": model["report"]}
+    return {
+        "model_id": model["model_id"],
+        "timestamp_open_ms": t,
+        "data_age_minutes": round(age_min, 2),
+        "p_tradeable": round(p_market, 4),
+        "p_profitable_btc_long": round(p_long, 4),
+        "candidate": candidate,
+        "status": status,
+        "context_complete": context_complete,
+        "missing_alt_features": missing_alt_features[:20],
+        "missing_alt_feature_count": len(missing_alt_features),
+        "mode": "PAPER_ONLY",
+        "out_of_sample": model["report"]
+    }
