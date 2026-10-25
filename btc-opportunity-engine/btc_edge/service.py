@@ -167,7 +167,10 @@ def decision_diagnostics(db: sqlite3.Connection, score: dict, ledger: dict) -> d
     """).fetchone()
     reasons = []
     if score["status"] == "STALE_DATA":
-        reasons.append("Market data is stale")
+        reasons.append("Bitcoin candle data is stale")
+    if score.get("missing_alt_feature_count", 0):
+        reasons.append(str(score["missing_alt_feature_count"]) +
+            " altcoin context features are incomplete: research score only, no paper entry")
     if pm < settings.tradeability_threshold:
         reasons.append(f"Market score {pm:.1%} is below {settings.tradeability_threshold:.0%}")
     if pl < settings.long_threshold:
@@ -178,6 +181,8 @@ def decision_diagnostics(db: sqlite3.Connection, score: dict, ledger: dict) -> d
         reasons.append("Both score thresholds met; paper entry evaluation eligible")
     return {
         "mode": "PAPER_ONLY",
+        "feature_context_complete": bool(score.get("context_complete", True)),
+        "missing_alt_features": score.get("missing_alt_features", []),
         "evaluated_candles": int(total),
         "score_qualified_candles": int(eligible),
         "market_threshold": settings.tradeability_threshold,
@@ -275,8 +280,12 @@ def cycle() -> None:
         save_state(
             archive=archive_before, training_window_days=json.loads((MODEL_DIR / "latest.json").read_text())["settings"]["training_days"],
             phase="RUNNING" if score["status"] != "STALE_DATA" else "STALE_DATA",
-            message=("Collecting observations and issuing paper-only forecasts."
-                     if score["status"] != "STALE_DATA" else "Market data too old; forecasts suspended."),
+            message=("Some altcoin context is missing. The latest BTC candle is scored with"
+                     " neutral trained values; paper entries are suspended."
+                     if score["status"] == "PARTIAL_CONTEXT" else
+                     "Market data too old; forecasts suspended."
+                     if score["status"] == "STALE_DATA" else
+                     "Collecting observations and issuing paper-only forecasts."),
             updated_at=timestamp(), last_error=None, score=score,
             forward_observations=forward, paper_trades=ledger,
             decision_diagnostics=decisions,
