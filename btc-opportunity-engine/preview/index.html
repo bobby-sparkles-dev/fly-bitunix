@@ -288,12 +288,12 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 </section>
 <section class="panel full"><div class="headingrow"><div><div class="eyebrow">CROSS-MARKET CONTEXT</div><h2>Altcoin momentum watch</h2></div><small>1-hour change from completed 5-minute bars</small></div><div class="altlist" id="altlist"><span class="muted">Loading altcoin data...</span></div></section>
 </div>
-<p class="footer">Public-data preview only. Source: Binance spot market-data API, if accessible from your browser. Candle timestamps use UTC; the most recent incomplete candle is ignored. Network failures are shown explicitly rather than filled with invented live results. The public chart fetches exchange candles independently; backend progress comes from the research API. <a href="https://github.com/bobby-sparkles-dev/fly-bitunix/pull/1" rel="noopener noreferrer" target="_blank">Research source and draft pull request</a>.</p>
+<p class="footer">Public-data preview only. Source: completed candles saved by the research backend for the same exchange venue used by its model. Candle timestamps use UTC; the most recent incomplete candle is ignored. Data freshness and server errors are shown explicitly rather than replaced with invented live results. The hosted chart and backend read the same saved exchange candles. <a href="https://github.com/bobby-sparkles-dev/fly-bitunix/pull/1" rel="noopener noreferrer" target="_blank">Research source and draft pull request</a>.</p>
 </main>
 <script>
 "use strict";
 const el=(id)=>document.getElementById(id);
-const symbols=["ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","SUIUSDT","LTCUSDT"];
+const symbols=["ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","TRXUSDT","LTCUSDT"];
 let base="https://data-api.binance.vision/api/v3/klines";
 let mode="live",lastBars=[];
 function format(n,d=2){return Number.isFinite(n)?n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";}
@@ -304,7 +304,7 @@ function lastHour(b){return b.length>=13?100*(b[b.length-1].c/b[b.length-13].c-1
 function efficiency(b){if(b.length<13)return NaN;const c=b.slice(-13),travel=c.slice(1).reduce((s,r,i)=>s+Math.abs(r.c-c[i].c),0);return travel?100*Math.abs(c[12].c-c[0].c)/travel:0;}
 function volatility(b){if(b.length<13)return NaN;let values=[];for(let i=b.length-12;i<b.length;i++)values.push(Math.log(b[i].c/b[i-1].c));let mean=values.reduce((a,v)=>a+v,0)/values.length;return Math.sqrt(values.reduce((a,v)=>a+(v-mean)**2,0)/values.length)*100;}
 function volumeRatio(b){if(b.length<25)return NaN;const sum=a=>a.reduce((s,c)=>s+c.v*c.c,0);const prev=sum(b.slice(-24,-12)),current=sum(b.slice(-12));return prev?current/prev:NaN;}
-function setFeed(state,msg){el("feed-status").textContent=msg;el("dot").classList.toggle("live",state==="ok");el("data-quality").textContent=state==="ok"?"Public data loaded":state==="error"?"Unavailable":"Checking";el("data-quality").className=state==="ok"?"green":"status";}
+function setFeed(state,msg){el("feed-status").textContent=msg;el("dot").classList.toggle("live",state==="ok");el("data-quality").textContent=state==="ok"?"Stored candles fresh":state==="stale"?"Stored candles outdated":state==="error"?"Data unavailable":"Checking";el("data-quality").className=state==="ok"?"green":"status";}
 function renderMetrics(b,breadth){const latest=b[b.length-1];el("price").textContent="$"+format(latest.c,latest.c>=1000?0:2);el("price-status").textContent="Last completed 5m candle";el("efficiency").textContent=format(efficiency(b),0)+"%";el("change").textContent=pct(lastHour(b));el("change").className=lastHour(b)>=0?"green":"red";el("volume").textContent=format(volumeRatio(b),2)+"×";el("volatility").textContent=format(volatility(b),3)+"%";el("breadth").textContent=Number.isFinite(breadth)?format(breadth,0)+"%":"—";}
 function draw(b){
  const canvas=el("chart"),ctx=canvas.getContext("2d");const ratio=window.devicePixelRatio||1;const width=canvas.clientWidth,height=canvas.clientHeight;canvas.width=width*ratio;canvas.height=height*ratio;ctx.scale(ratio,ratio);ctx.clearRect(0,0,width,height);
@@ -318,17 +318,56 @@ function draw(b){
 function renderAlts(items){el("altlist").innerHTML=items.map(x=>'<div class="coin"><small>'+x.symbol.replace("USDT","")+'</small><strong class="'+(x.change>=0?"green":"red")+'">'+pct(x.change)+'</strong></div>').join("");}
 async function load(){
  if(mode!=="live")return;
- el("refresh").disabled=true;setFeed("loading","FETCHING COMPLETED CANDLES");
+ el("refresh").disabled=true;
+ setFeed("loading","LOADING SAVED EXCHANGE CANDLES");
  try{
- const b=await candles("BTCUSDT",140);if(b.length<30)throw Error("Not enough completed BTC candles");
- const alt=await Promise.allSettled(symbols.map(s=>candles(s,20)));
- let items=alt.map((x,i)=>x.status==="fulfilled"&&x.value.length>=13?{symbol:symbols[i],change:lastHour(x.value)}:null).filter(Boolean);
- if(mode!=="live")return;
- lastBars=b;const breadth=items.length>=5?100*items.filter(x=>x.change>0).length/items.length:NaN;renderMetrics(b,breadth);draw(b);
- el("chart-tag").textContent="PUBLIC CANDLES";el("chart-note").textContent="Actual completed candles · "+b.length+" bars";el("last-closed").textContent="Last bar: "+new Date(b[b.length-1].t+300000).toLocaleTimeString("en-GB",{timeZone:"UTC",hour:"2-digit",minute:"2-digit"})+" UTC";
- renderAlts(items);setFeed("ok","PUBLIC DATA · "+items.length+"/10 ALTS");
- }catch(e){if(mode!=="live")return;setFeed("error","DATA UNAVAILABLE");el("chart-tag").textContent="FEED UNAVAILABLE";el("chart-note").textContent="Exchange request failed: "+(e&&e.message?e.message:"Unknown error")+" · Use demo chart for layout preview";el("price-status").textContent="Data unavailable";el("altlist").innerHTML='<span class="muted">Live altcoin data unavailable in this browser.</span>';}
- finally{el("refresh").disabled=false;}
+  const staticPreview=["raw.githack.com","rawgit.com"].includes(location.hostname);
+  let data, b, items, stale=false, ageMinutes=null, sourceLabel;
+  if(!staticPreview){
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),12000);
+    try{
+      const response=await fetch("/api/market",{signal:ctrl.signal,cache:"no-store"});
+      data=await response.json();
+      if(!response.ok)throw Error(data?.details||data?.error||"Market API returned HTTP "+response.status);
+    }finally{clearTimeout(timer);}
+    b=parseCandles(data.symbols?.BTCUSDT||[]);
+    if(b.length<30)throw Error("Research database has fewer than 30 completed BTC candles");
+    items=symbols.map(symbol=>{
+      const bars=parseCandles(data.symbols?.[symbol]||[]);
+      return bars.length>=13?{symbol,change:lastHour(bars)}:null;
+    }).filter(Boolean);
+    stale=Boolean(data.stale);
+    ageMinutes=Number(data.age_minutes);
+    sourceLabel=data.venue==="binance_us"?"Binance.US":"Binance.com";
+  }else{
+    b=await candles("BTCUSDT",140);
+    const results=await Promise.allSettled(symbols.map(symbol=>candles(symbol,20)));
+    items=results.map((result,i)=>result.status==="fulfilled"&&result.value.length>=13
+      ?{symbol:symbols[i],change:lastHour(result.value)}:null).filter(Boolean);
+    sourceLabel="Static preview";
+  }
+  if(mode!=="live")return;
+  lastBars=b;
+  const breadth=items.length>=5?100*items.filter(x=>x.change>0).length/items.length:NaN;
+  renderMetrics(b,breadth);draw(b);
+  renderAlts(items);
+  const updatedAt=new Date(b[b.length-1].t+300000).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"});
+  el("last-closed").textContent="Last completed: "+updatedAt+" UTC";
+  el("chart-tag").textContent=stale?"STORED DATA STALE":"SAVED EXCHANGE CANDLES";
+  el("chart-note").textContent=(stale?"Outdated, not live · ":"")+"Saved "+sourceLabel+
+    " candles · "+b.length+" BTC bars"+(Number.isFinite(ageMinutes)?" · last bar "+ageMinutes.toFixed(1)+" min old":"");
+  el("price-status").textContent=stale?"Stored price is outdated":"Price from last completed saved candle";
+  setFeed(stale?"stale":"ok",stale?"BACKEND CANDLES STALE":"BACKEND DATA · "+items.length+"/10 ALTS");
+ }catch(e){
+   if(mode!=="live")return;
+   setFeed("error","SAVED DATA UNAVAILABLE");
+   el("chart-tag").textContent="MARKET DATA UNAVAILABLE";
+   el("chart-note").textContent="Could not load candles stored by the research engine: "+
+      (e&&e.message?e.message:"Unknown error")+". Research status above may still be working.";
+   el("price-status").textContent="Stored candle data unavailable";
+   el("altlist").innerHTML='<span class="muted">Stored altcoin candles unavailable. No fabricated live prices shown.</span>';
+ }finally{el("refresh").disabled=false;}
 }
 function sample(){const arr=[];const now=Math.floor(Date.now()/300000)*300000-300000;let p=70800;for(let i=0;i<100;i++){const o=p;const jump=Math.sin(i*.28)*42+Math.cos(i*.17)*31+(i>54?11:-2);p=o+jump;arr.push({t:now-(99-i)*300000,o,c:p,h:Math.max(o,p)+26+(i%7)*9,l:Math.min(o,p)-18-(i%5)*9,v:20+(i%9)*3});}return arr;}
 function demo(){mode="demo";setFeed("error","SYNTHETIC DEMO · NOT LIVE");const b=sample();lastBars=b;draw(b);el("chart-title").textContent="BTC / USD · SIMULATED";el("chart-tag").textContent="SYNTHETIC DATA";el("chart-note").textContent="Made-up prices for UI preview only · never real market observations";el("last-closed").textContent="No live price";el("price").textContent="DEMO";el("price-status").textContent="Synthetic candles";for(const id of ["efficiency","change","volume","volatility","breadth"])el(id).textContent="—";el("altlist").innerHTML='<span class="muted">Altcoin readings hidden in demo mode.</span>';el("demo").textContent="Return to live data";}
@@ -400,8 +439,6 @@ load();
       };
       setVal("engine-plain-state",phase);
       const venues={binance_global:"Binance.com spot",binance_us:"Binance.US spot"};
-      const chosen=state.data_venue==="binance_us"?"https://api.binance.us/api/v3/klines":"https://data-api.binance.vision/api/v3/klines";
-      if(state.data_venue && chosen!==base) {base=chosen; mode="live";load();}
 
       setVal("engine-source","Research source: "+(venues[state.data_venue]||state.data_venue||"Unknown"));
       const hb=Date.parse(state.worker_heartbeat_at||"");
