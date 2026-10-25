@@ -374,7 +374,22 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             p = ROOT / "preview" / "index.html"
             if p.is_file():
-                return self.respond(p.read_bytes(), "text/html; charset=utf-8")
+                from .initial_render import render_initial
+                from .api_market import market_snapshot
+                market = None
+                market_error = None
+                try:
+                    market = market_snapshot(DB)
+                except (OSError, ValueError, sqlite3.DatabaseError) as exc:
+                    market_error = str(exc)[:180]
+                    LOG.warning("Server-rendered market reading unavailable: %s", exc)
+                try:
+                    contents = render_initial(p.read_text(encoding="utf-8"),
+                                              snapshot(), market, market_error)
+                except Exception:
+                    LOG.exception("Initial dashboard rendering failed; serving basic HTML")
+                    contents = p.read_text(encoding="utf-8")
+                return self.respond(contents.encode("utf-8"), "text/html; charset=utf-8")
         if path == "/api/market":
             from .api_market import market_snapshot
             try:
