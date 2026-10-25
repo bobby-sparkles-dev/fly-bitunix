@@ -232,6 +232,11 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
   <strong>Why might the BTC-long probability be so low?</strong>
   <div id="cost-audit-details" style="margin-top:6px">Next model training will compare gross upward movement with profits after the simulated trading costs.</div>
 </div>
+ <div class="info" id="cost-audit-view" style="background:#fff5e9;border-color:#f1dec0">
+  <strong>Why the long score may be low</strong>
+  <div id="cost-audit-message">Waiting for the current model's fee-versus-price-movement audit.</div>
+  <div id="cost-audit-example" style="margin-top:8px"></div>
+ </div>
  <div class="info" id="research-only-explanation">Research only means the strategy has not passed historical validation. It can still record paper trades; it cannot send real orders.</div>
  <div class="info">A 70/100 market score means the model estimates a 70% chance of its defined market condition, not a 70% chance your trade wins. Scores are uncalibrated research estimates. No green light is a trade instruction.</div>
 </section>
@@ -476,6 +481,25 @@ load();
           "These percentages describe historical labels, not guaranteed future returns.");
       } else {
         setVal("cost-audit-details","We are auditing the last historical test to separate genuine price movement from losses caused by execution costs. Results will appear after the next successful model training.");
+      }
+      const audit=report?.cost_audit;
+      if(audit){
+        const asPercent=(n)=>typeof n==="number"?(100*n).toFixed(1)+"%":"—";
+        const n=Number(audit.test_net_winners??0), tests=Number(report?.observations_test??0);
+        const gross=Number(audit.test_gross_price_positive_count??0);
+        setVal("cost-audit-message","On "+tests.toLocaleString("en-GB")+
+          " historical test candles, "+gross+" would have exited above entry before costs, but only "+
+          n+" ended net-positive after estimated costs ("+asPercent(audit.test_net_positive_fraction)+"). "+
+          "These are overlapping simulations, not independent trades.");
+        const ex=audit.minimum_stop_example;
+        if(ex)setVal("cost-audit-example","Minimum-stop illustration: target "+ex.net_win_r_if_target_hit+
+          "R net versus stop "+ex.net_loss_r_if_stop_hit+"R net. "+
+          "The corresponding stop-or-target-only break-even hit rate is "+
+          asPercent(ex.breakeven_target_hit_rate_if_only_target_or_stop)+
+          ". This is not a measured market win rate.");
+      }else {
+        setVal("cost-audit-message","No detailed fee audit in this model yet; historical score remains unverified.");
+        setVal("cost-audit-example","");
       }
       const bt=report?.filtered_trades;
       setVal("research-only-explanation",report?
