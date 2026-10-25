@@ -17,13 +17,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .config import INTERVAL_MS, Settings
+from .market import PROVIDER
 from .storage import connect
 
 LOG = logging.getLogger("btc_edge.service")
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
-DB = DATA_DIR / "research.sqlite"
-MODEL_DIR = DATA_DIR / "models"
+DB = DATA_DIR / ("research.sqlite" if PROVIDER == "binance_global" else f"research-{PROVIDER}.sqlite")
+MODEL_DIR = DATA_DIR / ("models" if PROVIDER == "binance_global" else f"models-{PROVIDER}")
 STATE = DATA_DIR / "state.json"
 PORT = int(os.environ.get("PORT", "8080"))
 INTERVAL_SECONDS = 300
@@ -45,6 +46,8 @@ _cache = {
     "rate_limit": None,
 }
 _last_train = 0.0
+_last_checkpoint = 0.0
+_last_paper_digest = None
 
 
 def timestamp() -> str:
@@ -152,7 +155,7 @@ def evaluate_matured(db: sqlite3.Connection, candles: dict, features) -> dict:
 
 def cycle() -> None:
     """Fetch most recent closed bars, occasionally retrain, log forward scores."""
-    global _last_train
+    global _last_train, _last_checkpoint, _last_paper_digest
     from .market import ingest, PROVIDER
     from .features import load_candles, build_features
     from .learning import train, latest_score
@@ -208,9 +211,18 @@ def cycle() -> None:
         forward = evaluate_matured(db, candles, features)
         stage("complete", 100, "Research cycle complete")
         event("info", f"Research cycle finished · {score['status']}")
-        if os.environ.get("DATABASE_URL"):
+        # The free database must not receive a multi-megabyte full snapshot
+        # every five minutes. Snapshot at first successful run, on meaningful
+        # paper-trade changes, and at most once per hour otherwise.
+        digest = (ledger["queued"], ledger["open"], ledger["completed"], ledger["invalid"])
+        should_save = (_last_checkpoint == 0.0 or
+                       time.time() - _last_checkpoint >= 3600 or
+                       digest != _last_paper_digest)
+        if os.environ.get("DATABASE_URL") and should_save:
             from .persistence import checkpoint
             checkpoint(DB, MODEL_DIR)
+            _last_checkpoint = time.time()
+            _last_paper_digest = digest
             event("info", "Saved durable PostgreSQL research checkpoint")
         save_state(
             phase="RUNNING" if score["status"] != "STALE_DATA" else "STALE_DATA",
