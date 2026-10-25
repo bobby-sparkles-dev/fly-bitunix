@@ -289,7 +289,7 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 <div class="row"><span>YouTube trader extraction</span><strong class="status">Offline module</strong></div>
 <div class="row"><span>Paper-trade evaluator</span><strong class="status">Offline module</strong></div>
 <div class="row"><span>Automated trading</span><strong>Disabled</strong></div>
-<div style="margin-top:24px"><div class="headingrow"><h2>Data controls</h2></div><div class="actions"><button id="refresh">↻ Refresh now</button><button id="demo">View demo chart</button></div><p class="muted" style="font-size:12px">Automatic candle refresh every 90 seconds while this page is open. Demo mode is synthetic and is never used to train models.</p></div>
+<div style="margin-top:24px"><div class="headingrow"><h2>Data controls</h2></div><div class="actions"><button id="refresh">↻ Refresh dashboard</button><button id="demo">View demo chart</button></div><p class="muted" style="font-size:12px">Automatic candle refresh every 90 seconds while this page is open. Demo mode is synthetic and is never used to train models.</p></div>
 </section>
 <section class="panel full">
 <div class="headingrow"><div><div class="eyebrow">BITCOIN / SPOT · 5-MIN CANDLES</div><h2 id="chart-title">BTC / USDT</h2></div><span class="pill" id="chart-tag">WAITING FOR DATA</span></div>
@@ -380,7 +380,7 @@ async function load(){
 }
 function sample(){const arr=[];const now=Math.floor(Date.now()/300000)*300000-300000;let p=70800;for(let i=0;i<100;i++){const o=p;const jump=Math.sin(i*.28)*42+Math.cos(i*.17)*31+(i>54?11:-2);p=o+jump;arr.push({t:now-(99-i)*300000,o,c:p,h:Math.max(o,p)+26+(i%7)*9,l:Math.min(o,p)-18-(i%5)*9,v:20+(i%9)*3});}return arr;}
 function demo(){mode="demo";setFeed("error","SYNTHETIC DEMO · NOT LIVE");const b=sample();lastBars=b;draw(b);el("chart-title").textContent="BTC / USD · SIMULATED";el("chart-tag").textContent="SYNTHETIC DATA";el("chart-note").textContent="Made-up prices for UI preview only · never real market observations";el("last-closed").textContent="No live price";el("price").textContent="DEMO";el("price-status").textContent="Synthetic candles";for(const id of ["efficiency","change","volume","volatility","breadth"])el(id).textContent="—";el("altlist").innerHTML='<span class="muted">Altcoin readings hidden in demo mode.</span>';el("demo").textContent="Return to live data";}
-el("refresh").addEventListener("click",()=>{mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();});
+el("refresh").addEventListener("click",()=>{mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();if(typeof window.refreshResearchStatus==="function")window.refreshResearchStatus();});
 el("demo").addEventListener("click",()=>{if(mode==="demo"){mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();}else demo();});
 window.addEventListener("resize",()=>{if(lastBars.length)draw(lastBars);});
 setInterval(()=>{if(mode==="live")load();},90000);
@@ -491,7 +491,6 @@ load();
       } else {
         setVal("cost-audit-details","We are auditing the last historical test to separate genuine price movement from losses caused by execution costs. Results will appear after the next successful model training.");
       }
-      const audit=report?.cost_audit;
       if(audit){
         const asPercent=(n)=>typeof n==="number"?(100*n).toFixed(1)+"%":"—";
         const n=Number(audit.test_net_winners??0), tests=Number(report?.observations_test??0);
@@ -585,6 +584,7 @@ load();
       }
     }catch(e){setText("phase-label","Research API unreachable");setText("live-errors","Cannot retrieve live progress: "+(e.message||String(e)));if(callout)callout.textContent="Research API currently unreachable. Dashboard market candles can still be read separately; no trained signals are available.";}
   }
+  window.refreshResearchStatus=tick;
   await tick();setInterval(tick,10000);
 })();
 </script>
