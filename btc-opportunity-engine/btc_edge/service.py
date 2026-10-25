@@ -36,6 +36,9 @@ _cache = {
     "updated_at": None,
     "score": None,
     "last_error": None,
+    "progress": {"stage": "starting", "percent": 0},
+    "events": [],
+    "heartbeat_at": None,
 }
 _last_train = 0.0
 
@@ -52,6 +55,19 @@ def save_state(**changes) -> None:
         temporary = STATE.with_suffix(".tmp")
         temporary.write_text(json.dumps(_cache, default=str))
         temporary.replace(STATE)
+
+
+def event(level: str, message: str) -> None:
+    with _lock:
+        events = list(_cache.get("events", []))
+        events.append({"at": timestamp(), "level": level, "message": message[:400]})
+        save_state(events=events[-35:])
+
+
+def stage(name: str, percent: float, message: str, **extra) -> None:
+    progress = {"stage": name, "percent": round(max(0, min(percent, 100)), 1),
+                "heartbeat_at": timestamp(), **extra}
+    save_state(progress=progress, heartbeat_at=timestamp(), message=message)
 
 
 def snapshot() -> dict:
@@ -139,15 +155,29 @@ def cycle() -> None:
 
     save_state(phase="COLLECTING", message="Downloading completed exchange candles...",
                last_error=None)
+    stage("collecting", 0, "Starting candle collection")
     with connect(DB) as db:
         ensure_history(db)
         has_history = db.execute("SELECT COUNT(*) FROM candles WHERE symbol='BTCUSDT'").fetchone()[0]
-        result = ingest(db, days=37 if has_history < 500 else 2)
+        days = 37 if has_history < 500 else 2
+        event("info", f"Beginning {days}-day candle refresh")
+        def report(p):
+            stage("collecting", p["percent"] * 0.78,
+                  f"Downloading {p['current_symbol']} · {p['completed_symbols']}/{p['total_symbols']} markets complete",
+                  collection=p)
+        def retry(p):
+            event("warning", f"{p['symbol']}: {p['kind']} retry {p['attempt']}/{p['max_attempts']}" +
+                  (f" (HTTP {p['code']})" if "code" in p else ""))
+        result = ingest(db, days=days, on_progress=report, on_retry=retry)
+        event("info", f"Finished candle refresh across {len(result['candles'])} assets")
+        stage("features", 80, "Calculating market features")
         candles = load_candles(db, days=45)
         features = build_features(candles)
+        stage("features", 85, "Features calculated")
         trained = MODEL_DIR.joinpath("latest.json").exists()
         if not trained or time.time() - _last_train >= TRAIN_INTERVAL_SECONDS:
             save_state(phase="TRAINING", message="Fitting models and testing past-only holdout...")
+            stage("training", 88, "Preparing future outcome labels")
             train_result = train(
                 features,
                 __import__("btc_edge.outcomes", fromlist=["build_outcomes"]).build_outcomes(
@@ -155,11 +185,15 @@ def cycle() -> None:
                 Settings(),
                 MODEL_DIR,
             )
+            stage("training", 96, "Training and historical evaluation complete")
             _last_train = time.time()
             LOG.info("Model updated %s", train_result["model_id"])
+        stage("scoring", 97, "Scoring latest completed BTC candle")
         score = latest_score(features, MODEL_DIR)
         record_forecast(db, score)
         forward = evaluate_matured(db, candles, features)
+        stage("complete", 100, "Research cycle complete")
+        event("info", f"Research cycle finished · {score['status']}")
         save_state(
             phase="RUNNING" if score["status"] != "STALE_DATA" else "STALE_DATA",
             message=("Collecting observations and issuing paper-only forecasts."
@@ -186,6 +220,8 @@ def worker() -> None:
             cycle()
         except Exception as e:
             LOG.exception("Research cycle failed")
+            event("error", f"{type(e).__name__}: {str(e)[:250]}")
+            stage("error", _cache.get("progress", {}).get("percent", 0), "Research cycle failed")
             save_state(phase="ERROR", message="Research cycle failed; previous scores may be stale.",
                        last_error=f"{type(e).__name__}: {str(e)[:250]}", updated_at=timestamp())
         time.sleep(max(30, INTERVAL_SECONDS - (time.monotonic() - started)))
