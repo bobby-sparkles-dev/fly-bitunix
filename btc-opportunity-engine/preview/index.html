@@ -219,6 +219,7 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 <h1>Trade less. <span style="color:var(--mint)">Know when to look.</span></h1>
 <p class="intro">We watch Bitcoin and ten other coins to identify when BTC long trades might work better. Here's what the engine is doing, what it predicts, and how its paper trades are actually performing.</p>
 <div class="callout" role="status"><strong>Research preview, not a trading signal.</strong> Green-light trading decisions are deliberately disabled until we have real forward-test evidence. Historical win rate: not measured.</div>
+<div id="saved-data-banner" class="info" role="status" style="margin:0 0 18px;background:#fff4e4;border-color:#e8cda6;font-size:13px">Connecting to the research service. Saved readings will appear here, including their age, even if the market feed is temporarily stale.</div>
 <section class="panel" style="margin-bottom:16px" aria-label="Research explained">
  <div class="headingrow"><h2>What is the engine doing?</h2><span class="pill" id="engine-plain-state">Starting</span></div>
  <div id="plain-message" style="font-size:16px;font-weight:650;margin-bottom:9px">Connecting to the research engine…</div>
@@ -289,7 +290,7 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 <div class="row"><span>YouTube trader extraction</span><strong class="status">Offline module</strong></div>
 <div class="row"><span>Paper-trade evaluator</span><strong class="status">Offline module</strong></div>
 <div class="row"><span>Automated trading</span><strong>Disabled</strong></div>
-<div style="margin-top:24px"><div class="headingrow"><h2>Data controls</h2></div><div class="actions"><button id="refresh">↻ Refresh dashboard</button><button id="demo">View demo chart</button></div><p class="muted" style="font-size:12px">Automatic candle refresh every 90 seconds while this page is open. Demo mode is synthetic and is never used to train models.</p></div>
+<div style="margin-top:24px"><div class="headingrow"><h2>Data controls</h2></div><div class="actions"><button id="refresh">↻ Check for updated data</button><button id="demo">View demo chart</button></div><p id="refresh-result" role="status" class="muted" style="font-size:12px;margin-top:9px">No refresh performed yet.</p><p class="muted" style="font-size:12px">Automatic candle refresh every 90 seconds while this page is open. Demo mode is synthetic and is never used to train models.</p></div>
 </section>
 <section class="panel full">
 <div class="headingrow"><div><div class="eyebrow">BITCOIN / SPOT · 5-MIN CANDLES</div><h2 id="chart-title">BTC / USDT</h2></div><span class="pill" id="chart-tag">WAITING FOR DATA</span></div>
@@ -304,7 +305,7 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 const el=(id)=>document.getElementById(id);
 const symbols=["ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","TRXUSDT","LTCUSDT"];
 let base="https://data-api.binance.vision/api/v3/klines";
-let mode="live",lastBars=[];
+let mode="live",lastBars=[],lastMarketCheckAt=null;
 function format(n,d=2){return Number.isFinite(n)?n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";}
 function pct(n){return Number.isFinite(n)?(n>=0?"+":"")+format(n,2)+"%":"—";}
 function parseCandles(raw){const now=Date.now();return raw.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).filter(r=>r.t+300000<=now&&Number.isFinite(r.c)&&r.c>0);}
@@ -328,7 +329,9 @@ function renderAlts(items){el("altlist").innerHTML=items.map(x=>'<div class="coi
 async function load(){
  if(mode!=="live")return;
  el("refresh").disabled=true;
- setFeed("loading","LOADING SAVED EXCHANGE CANDLES");
+ const attemptedAt=new Date();
+ if(el("refresh-result")) el("refresh-result").textContent="Checking saved BTC candles at "+attemptedAt.toLocaleTimeString("en-GB")+"…";
+ setFeed("loading","CHECKING SAVED CANDLES");
  try{
   const staticPreview=["raw.githack.com","rawgit.com"].includes(location.hostname);
   let data, b, items, stale=false, ageMinutes=null, sourceLabel;
@@ -367,20 +370,41 @@ async function load(){
   el("chart-note").textContent=(stale?"Outdated, not live · ":"")+"Saved "+sourceLabel+
     " candles · "+b.length+" BTC bars"+(Number.isFinite(ageMinutes)?" · last bar "+ageMinutes.toFixed(1)+" min old":"");
   el("price-status").textContent=stale?"Stored price is outdated":"Price from last completed saved candle";
-  setFeed(stale?"stale":"ok",stale?"BACKEND CANDLES STALE":"BACKEND DATA · "+items.length+"/10 ALTS");
+  setFeed(stale?"stale":"ok",stale?"SAVED CANDLES OUTDATED":"BACKEND DATA · "+items.length+"/10 ALTS");
+  lastMarketCheckAt=Date.now();
+  const checked=attemptedAt.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  if(el("refresh-result")) el("refresh-result").textContent="Checked "+checked+" · Latest saved candle "+updatedAt+
+    " UTC"+(Number.isFinite(ageMinutes)?" · "+ageMinutes.toFixed(1)+" min old":"")+
+    (stale?". Prices are cached because the worker has not saved newer candles.":".");
+  if(el("saved-data-banner")) el("saved-data-banner").textContent=stale?
+   "Saved market data is available, but is "+(Number.isFinite(ageMinutes)?ageMinutes.toFixed(1):"?")+
+   " minutes old. Showing the last saved prices, not live prices. Refresh rechecks stored data; the backend imports new candles independently.":
+   "Saved market data is available. Latest BTC candle: "+updatedAt+" UTC. Scores and charts are research-only.";
  }catch(e){
    if(mode!=="live")return;
-   setFeed("error","SAVED DATA UNAVAILABLE");
-   el("chart-tag").textContent="MARKET DATA UNAVAILABLE";
+   setFeed("error","CANNOT REACH SAVED MARKET DATA");
+   if(el("refresh-result"))el("refresh-result").textContent="Checked "+
+     attemptedAt.toLocaleTimeString("en-GB")+" · Market-data request failed: "+(e?.message||String(e));
+   if(el("saved-data-banner"))el("saved-data-banner").textContent=lastBars.length?
+     "Market-data refresh failed. Previously loaded chart is retained; it is NOT live. "+
+     (e?.message||String(e)):
+     "Cannot retrieve stored price data right now. The app's research model may still be saved in the backend. "+
+     (e?.message||String(e));
+   el("chart-tag").textContent=lastBars.length?"PREVIOUS CHART · STALE":"MARKET DATA UNAVAILABLE";
    el("chart-note").textContent="Could not load candles stored by the research engine: "+
       (e&&e.message?e.message:"Unknown error")+". Research status above may still be working.";
-   el("price-status").textContent="Stored candle data unavailable";
+   el("price-status").textContent=lastBars.length?"Last saved value; refresh failed":"Stored candle data unavailable";
    el("altlist").innerHTML='<span class="muted">Stored altcoin candles unavailable. No fabricated live prices shown.</span>';
  }finally{el("refresh").disabled=false;}
 }
 function sample(){const arr=[];const now=Math.floor(Date.now()/300000)*300000-300000;let p=70800;for(let i=0;i<100;i++){const o=p;const jump=Math.sin(i*.28)*42+Math.cos(i*.17)*31+(i>54?11:-2);p=o+jump;arr.push({t:now-(99-i)*300000,o,c:p,h:Math.max(o,p)+26+(i%7)*9,l:Math.min(o,p)-18-(i%5)*9,v:20+(i%9)*3});}return arr;}
 function demo(){mode="demo";setFeed("error","SYNTHETIC DEMO · NOT LIVE");const b=sample();lastBars=b;draw(b);el("chart-title").textContent="BTC / USD · SIMULATED";el("chart-tag").textContent="SYNTHETIC DATA";el("chart-note").textContent="Made-up prices for UI preview only · never real market observations";el("last-closed").textContent="No live price";el("price").textContent="DEMO";el("price-status").textContent="Synthetic candles";for(const id of ["efficiency","change","volume","volatility","breadth"])el(id).textContent="—";el("altlist").innerHTML='<span class="muted">Altcoin readings hidden in demo mode.</span>';el("demo").textContent="Return to live data";}
-el("refresh").addEventListener("click",()=>{mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();if(typeof window.refreshResearchStatus==="function")window.refreshResearchStatus();});
+el("refresh").addEventListener("click",()=>{
+ mode="live";el("chart-title").textContent="BTC / USDT";
+ el("demo").textContent="View demo chart";
+ load();
+ if(typeof window.refreshResearchStatus==="function")window.refreshResearchStatus();
+});
 el("demo").addEventListener("click",()=>{if(mode==="demo"){mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();}else demo();});
 window.addEventListener("resize",()=>{if(lastBars.length)draw(lastBars);});
 setInterval(()=>{if(mode==="live")load();},90000);
@@ -472,8 +496,14 @@ load();
         (state.message||"Research-only: no real orders."));
       // Unlike previous versions, stale scores must NEVER be re-rendered
       // by unconditional updates lower down in this handler.
-      setVal("market-prob",scoreFresh?asPct(score.p_tradeable):"—");
-      setVal("long-prob",scoreFresh?asPct(score.p_profitable_btc_long):"—");
+      setVal("market-prob",score?asPct(score.p_tradeable)+(scoreFresh?"":" (old)"):"—");
+      setVal("long-prob",score?asPct(score.p_profitable_btc_long)+(scoreFresh?"":" (old)"):"—");
+      if(!scoreFresh && score && el("saved-data-banner")){
+        const staleWarning="The research model's last scored candle is "+(signalAgeMinutes??"?")+
+          " minutes old. Scores below show SAVED HISTORY, not current trading conditions. "+
+          "The engine may be restarting or waiting to download candles.";
+        el("saved-data-banner").textContent=staleWarning;
+      }
       setVal("model-reliability",score&&score.out_of_sample&&score.out_of_sample.meets_research_gate?"Backtest passed":"Unverified");
       setVal("last-trained",state.last_training_at?"Trained "+new Date(state.last_training_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"Not trained yet");
       const report=score?.out_of_sample;
@@ -562,7 +592,8 @@ load();
       const desc=label?.nextElementSibling;
       if(desc)desc.textContent=state.message||"Awaiting research worker";
       const scoreLabel=document.querySelector(".score");
-      if(scoreLabel)scoreLabel.textContent=scoreFresh&&state.phase==="RUNNING"?Math.round(100*score.p_tradeable)+"/100":"—";
+      if(scoreLabel)scoreLabel.textContent=score?
+        Math.round(100*score.p_tradeable)+"/100"+(scoreFresh?"":" (OLD)"):"—";
       const rows=[...document.querySelectorAll(".row")];
       for(const row of rows){
         const labelText=row.firstElementChild?.textContent||"";
