@@ -36,7 +36,7 @@ def test_paper_trade_is_not_settled_before_future_candle():
                         index=pd.Index([25 * INTERVAL_MS], name="open_time"))
     settle(c, bars)
     assert summary(c)["queued"] == 1
-    bars.loc[26 * INTERVAL_MS] = [50000., 51000., 49900., 50900.]
+    bars.loc[26 * INTERVAL_MS] = [50000., 51000., 50000., 50900.]
     bars = bars.sort_index()
     settle(c, bars)
     p = summary(c)
