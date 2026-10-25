@@ -194,7 +194,7 @@ def decision_diagnostics(db: sqlite3.Connection, score: dict, ledger: dict) -> d
 def cycle() -> None:
     """Fetch most recent closed bars, occasionally retrain, log forward scores."""
     global _last_train, _last_checkpoint, _last_paper_digest
-    from .market import ingest, PROVIDER
+    from .market import ingest, PROVIDER, RateLimited
     from .history import coverage, backfill
     from .features import load_candles, build_features
     from .learning import train, latest_score
@@ -268,7 +268,7 @@ def cycle() -> None:
             _last_paper_digest = digest
             event("info", "Saved durable PostgreSQL research checkpoint")
         save_state(
-            archive=archive_before, training_window_days=(74 if extended_ready else 30),
+            archive=archive_before, training_window_days=json.loads((MODEL_DIR / "latest.json").read_text())["settings"]["training_days"],
             phase="RUNNING" if score["status"] != "STALE_DATA" else "STALE_DATA",
             message=("Collecting observations and issuing paper-only forecasts."
                      if score["status"] != "STALE_DATA" else "Market data too old; forecasts suspended."),
@@ -287,12 +287,16 @@ def cycle() -> None:
                 on_progress=lambda progress: save_state(archive=progress["coverage"]),
                 on_retry=retry)
             save_state(archive=archive)
-            if archive["rows_added_this_cycle"] and os.environ.get("DATABASE_URL"):
-                from .persistence import checkpoint
-                checkpoint(DB, MODEL_DIR)
-                event("info", "Archived older candles to PostgreSQL")
-            if archive["archive_complete"]:
+            if archive["rows_added_this_cycle"]:
+                event("info", f"Added {archive['rows_added_this_cycle']} older candle rows to the local archive")
+            if archive["archive_complete"] and not archive_before["archive_complete"]:
                 event("info", "180-day archive is complete across all tracked markets")
+            # Archive additions are included in the next regular hourly durable
+            # checkpoint rather than uploading a large DB snapshot every cycle.
+        except RateLimited:
+            # A venue-wide throttle applies to the entire worker, not merely
+            # archive requests: the outer worker parks until the retry deadline.
+            raise
         except Exception as archive_error:
             event("warning", "Archive backfill paused: " + str(archive_error)[:220])
 
