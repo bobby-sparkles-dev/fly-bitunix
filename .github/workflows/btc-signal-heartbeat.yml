@@ -45,6 +45,22 @@ jobs:
                   if data.get("service") != "ok":
                       raise RuntimeError("Research web service returned unhealthy status")
                   print("Research server available:", json.dumps(data, sort_keys=True))
+                  if data.get("worker_alive") is False:
+                      # The free service can wake before its worker has progressed.
+                      # Give the worker a bounded chance to start independently.
+                      time.sleep(20)
+                      with urllib.request.urlopen(
+                          urllib.request.Request(base + "/api/health",
+                              headers={"Accept": "application/json"}), timeout=35
+                      ) as second:
+                          data = json.load(second)
+                      print("Post-wakeup worker state:", json.dumps(data, sort_keys=True))
+                      if data.get("worker_alive") is False:
+                          raise RuntimeError("BTC research worker has no recent heartbeat")
+                  age = data.get("score_age_minutes")
+                  if isinstance(age, (float, int)) and age > 20:
+                      print("::warning::BTC market model score is stale; last candle",
+                            round(age, 1), "minutes ago")
                   break
               except Exception as e:
                   print(f"Health probe {i + 1}/3 failed: {type(e).__name__}: {e}")
