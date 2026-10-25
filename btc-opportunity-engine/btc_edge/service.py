@@ -400,11 +400,37 @@ def main() -> None:
             from .persistence import restore
             if restore(DB, MODEL_DIR):
                 LOG.info("Restored SQLite research from durable PostgreSQL checkpoint")
+                save_state(database_restored_from_neon=True)
             else:
                 LOG.info("PostgreSQL database connected: no existing checkpoint")
         except Exception:
             LOG.exception("PostgreSQL restore failed; refusing to proceed unsafely")
             raise
+    # Verify the same stored-candle query that powers /api/market.
+    # An old checkpoint is labelled stale, never treated as a fresh quote.
+    try:
+        from .api_market import market_snapshot
+        chart = market_snapshot(DB)
+        LOG.info("MARKET DATA SELF-CHECK OK: venue=%s btc_candles=%d age_minutes=%.1f stale=%s",
+                 chart["venue"], len(chart["symbols"]["BTCUSDT"]),
+                 chart["age_minutes"], chart["stale"])
+        save_state(chart_data_readable=True, chart_data_stale=chart["stale"])
+    except Exception as exc:
+        LOG.warning("MARKET DATA SELF-CHECK NOT READY: %s", exc)
+        save_state(chart_data_readable=False, chart_data_error=str(exc)[:180])
+    # Restart should not retrain an already-saved model just because the process
+    # clock has reset. The next scheduled training cycle remains due at +6h.
+    saved_model = MODEL_DIR / "latest.json"
+    if saved_model.is_file():
+        try:
+            global _last_train
+            trained = json.loads(saved_model.read_text()).get("trained_at")
+            trained_epoch = datetime.fromisoformat(trained).timestamp()
+            if 0 < time.time() - trained_epoch < TRAIN_INTERVAL_SECONDS:
+                _last_train = trained_epoch
+                LOG.info("Restored recent trained model; skipped unnecessary restart retraining")
+        except (OSError, ValueError, TypeError, KeyError):
+            LOG.warning("Saved model metadata could not be used to restore training clock")
     threading.Thread(target=heartbeat, name="heartbeat", daemon=True).start()
     threading.Thread(target=worker, name="research-worker", daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
