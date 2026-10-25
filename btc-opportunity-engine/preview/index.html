@@ -17,8 +17,38 @@ h1{font-size:clamp(30px,4vw,49px);line-height:1.13;letter-spacing:-.04em;margin:
 <main>
 <header><div class="brand"><span class="mark">₿</span> BTC SIGNAL LAB <small> / RESEARCH</small></div><div class="headright"><span class="pill"><span class="dot" id="dot"></span><span id="feed-status">CONNECTING TO MARKET DATA</span></span><span class="pill">NO LIVE TRADING</span></div></header>
 <h1>Trade less. <span style="color:var(--mint)">Know when to look.</span></h1>
-<p class="intro">A research dashboard for Bitcoin long opportunities, informed by what the broader crypto market is doing. The live service collects public market data and evaluates experimental BTC-long research models. Predictions are not validated trading signals.</p>
+<p class="intro">We watch Bitcoin and ten other coins to identify when BTC long trades might work better. Here's what the engine is doing, what it predicts, and how its paper trades are actually performing.</p>
 <div class="callout" role="status"><strong>Research preview, not a trading signal.</strong> Green-light trading decisions are deliberately disabled until we have real forward-test evidence. Historical win rate: not measured.</div>
+<section class="panel" style="margin-bottom:16px" aria-label="Research explained">
+ <div class="headingrow"><h2>What is the engine doing?</h2><span class="pill" id="engine-plain-state">Starting</span></div>
+ <div id="plain-message" style="font-size:16px;font-weight:650;margin-bottom:9px">Connecting to the research engine…</div>
+ <div class="muted" id="plain-detail">First it collects candles, then trains on recent history, then estimates the next 30 minutes. All entries are virtual.</div>
+ <div class="grid3">
+  <div class="stat"><label>Market likely to move cleanly?</label><strong id="market-prob">—</strong><em>Probability of our defined tradeable market, not profit</em></div>
+  <div class="stat"><label>Simulated BTC long profitable?</label><strong id="long-prob">—</strong><em>Experimental net-positive bracket outcome estimate</em></div>
+  <div class="stat"><label>Can we trust these scores?</label><strong id="model-reliability">Not yet</strong><em id="last-trained">Needs forward testing</em></div>
+ </div>
+ <div class="info">A 70/100 market score means the model estimates a 70% chance of its **defined market condition**, not a 70% chance your trade wins. Scores are uncalibrated research estimates. No green light is a trade instruction.</div>
+</section>
+<section class="panel" style="margin-bottom:16px" aria-label="Paper trade results">
+ <div class="headingrow"><h2>Paper trading: actual forward results</h2><span class="pill">NO REAL MONEY</span></div>
+ <div class="grid3">
+  <div class="stat"><label>Waiting to enter</label><strong id="paper-queued">0</strong><em>Next eligible full candle</em></div>
+  <div class="stat"><label>Currently open</label><strong id="paper-open">0</strong><em>Virtual BTC positions</em></div>
+  <div class="stat"><label>Finished trades</label><strong id="paper-closed">0</strong><em>Completed, evaluated setups</em></div>
+  <div class="stat"><label>Wins / losses</label><strong id="paper-winloss">0 / 0</strong><em>After assumed costs</em></div>
+  <div class="stat"><label>Win rate</label><strong id="paper-winrate">—</strong><em>Target: 55%; not verified until enough trades</em></div>
+  <div class="stat"><label>Total result</label><strong id="paper-net">0 R</strong><em>R = initial price risk, not pounds</em></div>
+ </div>
+ <div style="margin-top:16px" class="eyebrow">Evidence gathered toward first 100 settled paper trades</div>
+ <div class="progress-track" style="margin-top:8px"><div class="progress-fill" id="evidence-fill" style="width:0%"></div></div>
+ <div class="progress-extra"><span id="evidence-text">0 of 100 settled</span><span id="paper-availability">First results appear after a valid paper entry closes</span></div>
+ <div class="info" id="active-paper-info">No open paper trade. No trades are executed on an exchange.</div>
+ <div class="headingrow" style="margin-top:20px"><h2>Historical backtest, kept separate</h2><small>Past data, not forward proof</small></div>
+ <div id="backtest-summary" class="muted">Waiting for first historical evaluation.</div>
+ <div class="headingrow" style="margin-top:18px"><h2>Recent virtual trades</h2></div>
+ <div id="paper-history" class="muted">No trades recorded.</div>
+</section>
 <section class="panel progress-shell" id="research-progress-panel" aria-live="polite">
  <div class="headingrow"><div><div class="eyebrow">RESEARCH ENGINE · LIVE PROGRESS</div><h2 id="phase-label">Waiting for server status</h2></div><strong id="progress-value" style="font-size:24px">—</strong></div>
  <div class="progress-track" role="progressbar" aria-label="Research cycle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
@@ -30,7 +60,7 @@ h1{font-size:clamp(30px,4vw,49px);line-height:1.13;letter-spacing:-.04em;margin:
 <div class="layout">
 <section class="panel">
 <div class="hero"><div><div class="eyebrow">BTC OPPORTUNITY GATE</div><div class="state" style="margin-top:9px">NOT ACTIVATED</div><div class="muted">Awaiting trained, forward-validated model</div></div><div><div class="eyebrow">MODEL SCORE</div><div class="score">—</div></div></div>
-<div class="info">The target is ≥55% winning BTC spot long paper trades with positive net expectancy after realistic costs. A displayed percentage won't count until verified against unseen outcomes.</div>
+<div class="info">Target: 55% wins with positive net results after estimated costs. Historical backtests and live paper trades are measured separately.</div>
 <div class="grid3">
 <div class="stat"><label>BTC price</label><strong id="price">—</strong><em id="price-status">Connecting...</em></div>
 <div class="stat"><label>Trend efficiency · 1h</label><strong id="efficiency">—</strong><em>0–100% directional travel</em></div>
@@ -114,12 +144,64 @@ load();
   const callout=document.querySelector(".callout");
   function setText(id,value){const node=document.getElementById(id);if(node)node.textContent=value;}
   function prettyTime(t){if(!t)return "—";const n=Date.parse(t);return Number.isFinite(n)?new Date(n).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"—";}
+  function setVal(id,value){const n=document.getElementById(id);if(n)n.textContent=value;}
+  function asPct(n){return typeof n==="number"&&Number.isFinite(n)?(n*100).toFixed(1)+"%":"—";}
+  function showPaper(s){
+    const p=s.paper_trades||{};
+    const closed=p.completed||0,win=p.wins||0,loss=p.losses||0;
+    setVal("paper-queued",p.queued??0);setVal("paper-open",p.open??0);setVal("paper-closed",closed);
+    setVal("paper-winloss",win+" / "+loss);setVal("paper-winrate",asPct(p.win_rate));
+    setVal("paper-net",typeof p.total_net_r==="number"?(p.total_net_r>0?"+":"")+p.total_net_r.toFixed(2)+" R":"—");
+    setVal("evidence-text",closed+" of 100 settled"+(p.invalid?" · "+p.invalid+" invalid-data exclusions":""));
+    document.getElementById("evidence-fill").style.width=Math.max(0,Math.min(100,closed))+"%";
+    const active=p.active;
+    setVal("active-paper-info",active?
+       active.status==="QUEUED"?
+         "A virtual trade is queued for "+new Date(active.entry_open_ms).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})+". Entry is not guaranteed; only a completed, observable candle can confirm it.":
+         "Virtual long OPEN · entry $"+Number(active.entry_fill).toLocaleString("en-US",{maximumFractionDigits:0})+
+         " · stop $"+Number(active.stop).toLocaleString("en-US",{maximumFractionDigits:0})+
+         " · target $"+Number(active.target).toLocaleString("en-US",{maximumFractionDigits:0})
+      :"No open or queued paper trade. The engine may stay inactive for long periods.");
+    setVal("paper-availability",closed===0?"Win rate becomes available after the first settled trade; reliable evidence needs substantially more.":"Initial review at 100 settled trades; 200+ preferred.");
+    const history=document.getElementById("paper-history");history.replaceChildren();
+    if(!Array.isArray(p.recent)||!p.recent.length){history.textContent="No virtual entries have been taken yet.";return;}
+    for(const t of p.recent){
+      const item=document.createElement("div");item.className="row";
+      const left=document.createElement("span");left.textContent=String(t.status||"")+
+       " · "+(t.observed_at?new Date(t.observed_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"");
+      const right=document.createElement("strong");right.className=t.status==="WIN"?"green":t.status==="LOSS"?"red":"status";
+      right.textContent=typeof t.net_r==="number"?(t.net_r>0?"+":"")+t.net_r.toFixed(2)+" R":(t.reason||"Awaiting result");
+      item.append(left,right);history.append(item);
+    }
+  }
   async function tick(){
     try{
       const response=await fetch("/api/state",{cache:"no-store"});
       if(!response.ok)throw Error("HTTP "+response.status);
       const state=await response.json();
       const score=state.score;
+      const phase=String(state.phase||"STARTING");
+      const descriptions={
+        STARTING:"Starting the research service and checking its stored data.",
+        COLLECTING:"Downloading recent BTC and altcoin candles.",
+        TRAINING:"Learning which past conditions preceded favourable BTC outcomes.",
+        RUNNING:"Tracking completed candles, scoring opportunities and evaluating paper outcomes.",
+        STALE_DATA:"Market feed is too old. New signals cannot be trusted.",
+        ERROR:"The last research cycle failed. Review the error panel below."
+      };
+      setVal("engine-plain-state",phase);
+      setVal("plain-message",descriptions[phase]||"Checking research status.");
+      setVal("plain-detail",state.message||"Research-only: no real orders.");
+      setVal("market-prob",score?asPct(score.p_tradeable):"—");
+      setVal("long-prob",score?asPct(score.p_profitable_btc_long):"—");
+      setVal("model-reliability",score&&score.out_of_sample&&score.out_of_sample.meets_research_gate?"Backtest passed":"Unverified");
+      setVal("last-trained",state.last_training_at?"Trained "+new Date(state.last_training_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"Not trained yet");
+      const bt=score?.out_of_sample?.filtered_trades;
+      setVal("backtest-summary",bt?
+         (bt.trades+" selected historical trades · "+(typeof bt.win_rate==="number"?asPct(bt.win_rate):"no win rate")+
+          " wins · mean "+(typeof bt.mean_net_r==="number"?bt.mean_net_r.toFixed(2)+" R":"—")+" after assumed costs. Past performance is not a forward result.")
+         :"No historical evaluation available.");
+      showPaper(state);
       const prog=state.progress||{};
       const p=Number.isFinite(Number(prog.percent))?Math.max(0,Math.min(100,Number(prog.percent))):0;
       setText("phase-label",String(state.phase||"STARTING")+" · "+String(prog.stage||"initialising"));
