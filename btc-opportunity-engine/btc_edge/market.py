@@ -1,6 +1,7 @@
 """Download ONLY completed public Binance spot 5-minute OHLCV candles."""
 from __future__ import annotations
 import json
+import os
 import time
 import urllib.error
 import urllib.parse
@@ -10,34 +11,64 @@ from collections.abc import Callable
 from .config import INTERVAL_MS, SYMBOLS
 from .storage import upsert_candles
 
-BASE_URL = "https://data-api.binance.vision/api/v3/klines"
+# Each venue has a separate history and model namespace. Never mix candles.
+PROVIDERS = {
+    "binance_global": "https://data-api.binance.vision/api/v3/klines",
+    "binance_us": "https://api.binance.us/api/v3/klines",
+}
+PROVIDER = os.environ.get("MARKET_PROVIDER", "binance_global")
+if PROVIDER not in PROVIDERS:
+    raise ValueError("Unsupported MARKET_PROVIDER")
+BASE_URL = PROVIDERS[PROVIDER]
 
-def fetch_page(symbol: str, start_ms: int, end_ms: int, retries: int = 4,
+
+class RateLimited(RuntimeError):
+    def __init__(self, symbol: str, status: int, retry_seconds: int):
+        self.symbol = symbol
+        self.status = status
+        self.retry_seconds = retry_seconds
+        super().__init__(f"{PROVIDER}: HTTP {status} on {symbol}; retry after {retry_seconds}s")
+
+
+def fetch_page(symbol: str, start_ms: int, end_ms: int, retries: int = 3,
                on_retry: Callable[[dict], None] | None = None) -> list:
-    query = urllib.parse.urlencode({"symbol": symbol, "interval": "5m", "startTime": start_ms,
-                                    "endTime": end_ms, "limit": 1000})
-    request = urllib.request.Request(f"{BASE_URL}?{query}", headers={"User-Agent": "btc-edge-research/0.1"})
+    query = urllib.parse.urlencode({"symbol": symbol, "interval": "5m",
+                                    "startTime": start_ms, "endTime": end_ms, "limit": 1000})
+    request = urllib.request.Request(f"{BASE_URL}?{query}", headers={
+        "User-Agent": "btc-edge-research/0.3", "Accept": "application/json"})
     for attempt in range(retries):
         try:
-            with urllib.request.urlopen(request, timeout=20) as response:
+            with urllib.request.urlopen(request, timeout=12) as response:
                 return json.load(response)
         except urllib.error.HTTPError as exc:
-            if exc.code not in (418, 429, 500, 502, 503, 504) or attempt == retries - 1:
+            if exc.code in (418, 429):
+                # IP-based throttle: immediately stop ALL symbols. Do not rotate
+                # Binance hosts to evade a limit or sleep blindly in this call.
+                raw = exc.headers.get("Retry-After", "")
+                try:
+                    seconds = max(1, min(86400, int(float(raw))))
+                except (ValueError, TypeError):
+                    seconds = 300 if exc.code == 429 else 3600
+                if on_retry:
+                    on_retry({"symbol": symbol, "kind": "rate_limit",
+                              "code": exc.code, "retry_seconds": seconds,
+                              "attempt": attempt + 1, "max_attempts": retries})
+                raise RateLimited(symbol, exc.code, seconds) from exc
+            if exc.code not in (500, 502, 503, 504) or attempt == retries - 1:
                 raise
             if on_retry:
-                on_retry({"symbol": symbol, "kind": "http", "code": exc.code,
-                          "attempt": attempt + 1, "max_attempts": retries})
-            retry_after = exc.headers.get("Retry-After")
-            time.sleep(float(retry_after) if retry_after else min(2 ** attempt, 30))
+                on_retry({"symbol": symbol, "kind": "server",
+                          "code": exc.code, "attempt": attempt + 1,
+                          "max_attempts": retries})
+            time.sleep(min(2 ** attempt, 4))
         except (TimeoutError, urllib.error.URLError):
             if attempt == retries - 1:
                 raise
             if on_retry:
                 on_retry({"symbol": symbol, "kind": "network",
                           "attempt": attempt + 1, "max_attempts": retries})
-            time.sleep(min(2 ** attempt, 30))
+            time.sleep(min(2 ** attempt, 4))
     raise RuntimeError("Unreachable retry condition")
-
 
 def to_record(symbol: str, entry: list) -> tuple:
     return (symbol, int(entry[0]), int(entry[6]), float(entry[1]), float(entry[2]),
