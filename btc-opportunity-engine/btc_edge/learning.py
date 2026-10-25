@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 from .config import INTERVAL_MS, Settings
 from .features import model_columns
 from .outcomes import non_overlapping_trades, trade_summary
+from .execution_math import minimum_stop_geometry
 
 
 def _fit(X: pd.DataFrame, y: pd.Series, age_days: np.ndarray, half_life: int) -> dict:
@@ -124,6 +125,13 @@ def train(features: pd.DataFrame, outcomes: pd.DataFrame, settings: Settings, ou
             np.mean((test["long_win"].astype(float) - train_long_base_rate) ** 2)), 5),
         "sample_warning": "5-minute observations have overlapping 30-minute futures; do not treat them as independent trades",
         "no_live_trade_authorisation": True,
+        "test_net_winners": int(test["long_win"].sum()),
+        "test_gross_price_positive_count": int((test["gross_r"] > 0).sum()),
+        "test_exit_reasons": {
+            reason: int((outcomes.reindex(test.index)["exit_reason"] == reason).sum())
+            for reason in ("TARGET", "STOP", "TIME")
+        },
+        "minimum_stop_example": minimum_stop_geometry(settings),
     }
 
     result = report["filtered_trades"]
