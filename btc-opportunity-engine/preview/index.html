@@ -211,6 +211,7 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 @media (prefers-reduced-motion: reduce) {
   button, .progress-fill { transition: none; }
 }
+.reload-link{display:inline-flex;align-items:center;justify-content:center;border:1px solid #cbb9eb;border-radius:11px;padding:10px 14px;color:#393057;background:#eee9ff;font-weight:750;font-size:14px;text-decoration:none}.reload-link:hover{background:#e1d8ff}.initial-chart{border:1px solid #e7e5dc;border-radius:12px;background:#fafbf7;padding:8px;margin-bottom:10px;overflow:hidden}.initial-chart svg{width:100%;height:auto;max-height:260px;display:block}[hidden]{display:none!important}
 </style>
 <script>
 window.addEventListener("error",function(e){
@@ -303,11 +304,11 @@ window.addEventListener("unhandledrejection",function(e){
 <div class="row"><span>YouTube trader extraction</span><strong class="status">Offline module</strong></div>
 <div class="row"><span>Paper-trade evaluator</span><strong class="status">Offline module</strong></div>
 <div class="row"><span>Automated trading</span><strong>Disabled</strong></div>
-<div style="margin-top:24px"><div class="headingrow"><h2>Data controls</h2></div><div class="actions"><button id="refresh">↻ Check for updated data</button><button id="demo">View demo chart</button></div><p id="refresh-result" role="status" class="muted" style="font-size:12px;margin-top:9px">No refresh performed yet.</p><p class="muted" style="font-size:12px">Automatic candle refresh every 90 seconds while this page is open. Demo mode is synthetic and is never used to train models.</p></div>
+<div style="margin-top:24px"><div class="headingrow"><h2>Data controls</h2></div><div class="actions"><button id="refresh">↻ Check for updated data</button><a href="/" class="reload-link" id="reload-full">↻ Reload entire page</a><button id="demo">View demo chart</button></div><p id="refresh-result" role="status" class="muted" style="font-size:12px;margin-top:9px">No refresh performed yet.</p><p class="muted" style="font-size:12px">Automatic candle refresh every 90 seconds while this page is open. Demo mode is synthetic and is never used to train models.</p></div>
 </section>
 <section class="panel full">
 <div class="headingrow"><div><div class="eyebrow">BITCOIN / SPOT · 5-MIN CANDLES</div><h2 id="chart-title">BTC / USDT</h2></div><span class="pill" id="chart-tag">WAITING FOR DATA</span></div>
-<canvas id="chart"></canvas><div class="chart-meta"><span id="chart-note">Loading completed candles...</span><span id="last-closed"></span></div>
+<div id="server-chart-fallback" class="initial-chart"><!--SERVER_STATIC_CHART--></div><canvas id="chart"></canvas><div class="chart-meta"><span id="chart-note">Loading completed candles...</span><span id="last-closed"></span></div>
 </section>
 <section class="panel full"><div class="headingrow"><div><div class="eyebrow">CROSS-MARKET CONTEXT</div><h2>Altcoin momentum watch</h2></div><small>1-hour change from completed 5-minute bars</small></div><div class="altlist" id="altlist"><span class="muted">Loading altcoin data...</span></div></section>
 </div>
@@ -337,6 +338,7 @@ function draw(b){
  for(let i=0;i<5;i++){const yy=plot.t+i*(plot.b-plot.t)/4;ctx.strokeStyle="#dddcd3";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(plot.l,yy);ctx.lineTo(plot.r,yy);ctx.stroke();ctx.fillStyle="#677581";ctx.fillText(format(high-i*(high-low)/4,0),width-4,yy-4);}
  const spacing=(plot.r-plot.l)/b.length;const cw=Math.max(1,Math.min(8,spacing*.66));b.forEach((r,i)=>{const x=plot.l+(i+.5)*spacing;const up=r.c>=r.o;ctx.strokeStyle=ctx.fillStyle=up?"#249f82":"#dc748a";ctx.beginPath();ctx.moveTo(x,y(r.h));ctx.lineTo(x,y(r.l));ctx.stroke();const top=y(Math.max(r.o,r.c)),bottom=y(Math.min(r.o,r.c));ctx.fillRect(x-cw/2,top,cw,Math.max(1.5,bottom-top));});
  ctx.fillStyle="#677581";ctx.textAlign="left";ctx.fillText(new Date(b[0].t).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"}),plot.l,height-5);ctx.textAlign="right";ctx.fillText(new Date(b[b.length-1].t).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"}),plot.r,height-5);
+ const fallback=document.getElementById("server-chart-fallback");if(fallback)fallback.hidden=true;
 }
 function renderAlts(items){el("altlist").innerHTML=items.map(x=>'<div class="coin"><small>'+x.symbol.replace("USDT","")+'</small><strong class="'+(x.change>=0?"green":"red")+'">'+pct(x.change)+'</strong></div>').join("");}
 async function load(){
