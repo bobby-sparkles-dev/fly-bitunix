@@ -40,7 +40,7 @@ def predict(bundle: dict, X: pd.DataFrame) -> np.ndarray:
 def prepare(features: pd.DataFrame, outcomes: pd.DataFrame) -> pd.DataFrame:
     # Only information known at decision time is included in X.
     cols = model_columns(features)
-    X = features[cols].join(outcomes[["tradeable", "long_win", "net_r", "exit_time"]], how="inner")
+    X = features[cols].join(outcomes[["tradeable", "long_win", "net_r", "gross_r", "cost_r", "exit_time"]], how="inner")
     return X.dropna().sort_index()
 
 
@@ -93,6 +93,39 @@ def train(features: pd.DataFrame, outcomes: pd.DataFrame, settings: Settings, ou
         "momentum_baseline": trade_summary(baseline),
         "all_possible_nonoverlapping": trade_summary(non_overlapping_trades(test)),
     }
+
+    # Cost audit: explain why nearly every small, short-horizon BTC move may
+    # fail a net-of-fees long label. Never use holdout data for training.
+    train_long_base_rate = float(training["long_win"].mean())
+    test_long_base_rate = float(test["long_win"].mean())
+    report["cost_audit"] = {
+        "label_definition": "Net-positive long using next-candle open, ATR/minimum stop, 1.25R target or time exit",
+        "window_minutes": settings.horizon_bars * INTERVAL_MS // 60_000,
+        "round_trip_fee_slippage_bps_approx": round(2 * (
+            settings.fee_bps_per_side + settings.slippage_bps_per_side), 2),
+        "minimum_stop_distance_bps": round(settings.min_stop_pct * 10_000, 2),
+        "train_net_positive_fraction": round(train_long_base_rate, 5),
+        "test_net_positive_fraction": round(test_long_base_rate, 5),
+        "test_price_positive_before_costs_fraction":
+            round(float((test["gross_r"] > 0).mean()), 5),
+        "test_tradeable_label_fraction": round(float(test["tradeable"].mean()), 5),
+        "test_average_gross_r": round(float(test["gross_r"].mean()), 5),
+        "test_average_cost_r": round(float(test["cost_r"].mean()), 5),
+        "test_average_net_r": round(float(test["net_r"].mean()), 5),
+        "test_market_threshold_passed_candles":
+            int((scored["p_market"] >= settings.tradeability_threshold).sum()),
+        "test_long_threshold_passed_candles":
+            int((scored["p_long"] >= settings.long_threshold).sum()),
+        "test_both_thresholds_passed_candles": int((
+            (scored["p_market"] >= settings.tradeability_threshold) &
+            (scored["p_long"] >= settings.long_threshold)).sum()),
+        "test_average_predicted_long_probability": round(float(scored["p_long"].mean()), 5),
+        "test_brier_constant_train_base_rate": round(float(
+            np.mean((test["long_win"].astype(float) - train_long_base_rate) ** 2)), 5),
+        "sample_warning": "5-minute observations have overlapping 30-minute futures; do not treat them as independent trades",
+        "no_live_trade_authorisation": True,
+    }
+
     result = report["filtered_trades"]
     benchmark = report["momentum_baseline"]
     # Deployment gating: this is STILL paper-only; short backtests do not authorize execution.
