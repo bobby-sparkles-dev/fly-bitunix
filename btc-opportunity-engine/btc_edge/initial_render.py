@@ -29,7 +29,7 @@ def _percent(value: Any) -> str:
 
 def _update(html: str, element_id: str, content: str) -> str:
     pattern = (
-        r'(<(?P<tag>[a-z][a-z0-9-]*)\\b[^>]*\\bid="'
+        r'(<(?P<tag>[a-z][a-z0-9-]*)\b[^>]*\bid="'
         + re.escape(element_id)
         + r'"[^>]*>)[^<]*(</(?P=tag)>)'
     )
