@@ -98,4 +98,45 @@ window.addEventListener("resize",()=>{if(lastBars.length)draw(lastBars);});
 setInterval(()=>{if(mode==="live")load();},90000);
 load();
 </script>
+<script>
+/* Server-backed research state. The raw.githack static preview has no /api/state.
+   Never substitute demo or client-calculated metrics for trained model scores. */
+(async function loadResearchState(){
+  if(location.hostname==="raw.githack.com" || location.hostname==="rawgit.com")return;
+  const callout=document.querySelector(".callout");
+  async function tick(){
+    try{
+      const response=await fetch("/api/state",{cache:"no-store"});
+      if(!response.ok)throw Error("HTTP "+response.status);
+      const state=await response.json();
+      const score=state.score;
+      const label=document.querySelector(".state");
+      if(label){label.textContent=state.phase==="RUNNING"?"RESEARCH RUNNING":state.phase==="ERROR"?"RESEARCH ERROR":String(state.phase||"STARTING");}
+      const desc=label?.nextElementSibling;
+      if(desc)desc.textContent=state.message||"Awaiting research worker";
+      const scoreLabel=document.querySelector(".score");
+      if(scoreLabel)scoreLabel.textContent=score&&state.phase==="RUNNING"?Math.round(100*score.p_tradeable)+"/100":"—";
+      const rows=[...document.querySelectorAll(".row")];
+      for(const row of rows){
+        const labelText=row.firstElementChild?.textContent||"";
+        const value=row.lastElementChild;
+        if(!value)continue;
+        if(labelText==="Live learning process")value.textContent=state.phase==="RUNNING"?"Running":state.phase==="ERROR"?"Error":"Starting";
+        if(labelText==="Market-condition model")value.textContent=score&&state.phase==="RUNNING"?"Research only":"Pending";
+      }
+      if(callout){
+        const f=state.forward_observations;
+        callout.textContent=state.phase==="RUNNING"
+         ?"Paper research active. Market tradeability estimate: "+(score?Math.round(100*score.p_tradeable)+"%":"unavailable")+
+          "; long bracket outcome estimate: "+(score?Math.round(100*score.p_profitable_btc_long)+"%":"unavailable")+
+          ". "+(f?"Forward observations evaluated: "+f.evaluated+"; qualified candidates evaluated: "+f.candidates_evaluated+". ":"")+
+          "These are uncalibrated experimental model outputs, NOT trade approvals or verified win rates."
+         :"Research engine: "+(state.message||"Starting")+" "+
+           (state.last_error?"Error: "+state.last_error:"")+" No trades can be placed.";
+      }
+    }catch(e){if(callout)callout.textContent="Research API currently unreachable. Dashboard market candles can still be read separately; no trained signals are available.";}
+  }
+  await tick();setInterval(tick,45000);
+})();
+</script>
 </body></html>
