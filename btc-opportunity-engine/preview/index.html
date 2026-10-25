@@ -237,6 +237,7 @@ window.addEventListener("unhandledrejection",function(e){
 <section class="panel" style="margin-bottom:16px" aria-label="Research explained">
  <div class="headingrow"><h2>What is the engine doing?</h2><span class="pill" id="engine-plain-state">Starting</span></div>
  <div id="plain-message" style="font-size:16px;font-weight:650;margin-bottom:9px">Connecting to the research engine…</div>
+ <div class="info" id="feature-coverage-note">Checking the latest BTC score and cross-market feature coverage…</div>
  <div class="muted" id="plain-detail">First it collects candles, then trains on recent history, then estimates the next 30 minutes. All entries are virtual.</div>
  <div class="grid3">
   <div class="stat"><label>Market likely to move cleanly?</label><strong id="market-prob">—</strong><em>Probability of our defined tradeable market, not profit</em></div>
@@ -558,11 +559,21 @@ load();
         COLLECTING:"Downloading recent BTC and altcoin candles.",
         TRAINING:"Learning which past conditions preceded favourable BTC outcomes.",
         RUNNING:"Tracking completed candles, scoring opportunities and evaluating paper outcomes.",
-        STALE_DATA:"Market feed is too old. New signals cannot be trusted.",
+        STALE_DATA:"The latest complete BTC data is too old to score safely.",
+        PARTIAL_CONTEXT:"BTC has fresh candles but some altcoin measurements are delayed; paper entries paused.",
         RATE_LIMITED:"The exchange has temporarily restricted API requests. The engine is pausing safely, not downloading.",
         ERROR:"The last research cycle failed. Review the error panel below."
       };
       setVal("engine-plain-state",phase);
+      setVal("feature-coverage-note",score
+        ?"Latest scored BTC candle: "+new Date(Number(score.timestamp_open_ms)+300000).toLocaleTimeString("en-GB",{timeZone:"UTC",hour:"2-digit",minute:"2-digit"})+
+         " UTC. "+(score.context_complete===false
+           ?Number(score.missing_alt_feature_count||0)+" delayed altcoin features ("+
+             (score.missing_alt_features||[]).slice(0,5).join(", ")+
+             "). These receive neutral research inputs and block paper trades."
+           :"Full market context available for this candle.")+
+         (score.status==="STALE_DATA"?" Score is outdated.":"")
+        :"Waiting for a completed BTC model score.");
       const venues={binance_global:"Binance.com spot",binance_us:"Binance.US spot"};
 
       setVal("engine-source","Research source: "+(venues[state.data_venue]||state.data_venue||"Unknown"));
@@ -581,8 +592,8 @@ load();
         (state.message||"Research-only: no real orders."));
       // Unlike previous versions, stale scores must NEVER be re-rendered
       // by unconditional updates lower down in this handler.
-      setVal("market-prob",score?asPct(score.p_tradeable)+(scoreFresh?"":" (old)"):"—");
-      setVal("long-prob",score?asPct(score.p_profitable_btc_long)+(scoreFresh?"":" (old)"):"—");
+      setVal("market-prob",score?asPct(score.p_tradeable)+(scoreFresh?(score.context_complete===false?" (partial)":""):" (old)"):"—");
+      setVal("long-prob",score?asPct(score.p_profitable_btc_long)+(scoreFresh?(score.context_complete===false?" (partial)":""):" (old)"):"—");
       if(!scoreFresh && score && el("saved-data-banner")){
         const staleWarning="The research model's last scored candle is "+(signalAgeMinutes??"?")+
           " minutes old. Scores below show SAVED HISTORY, not current trading conditions. "+
@@ -684,7 +695,7 @@ load();
         const labelText=row.firstElementChild?.textContent||"";
         const value=row.lastElementChild;
         if(!value)continue;
-        if(labelText==="Live learning process")value.textContent=state.phase==="RUNNING"?"Running":state.phase==="ERROR"?"Error":"Starting";
+        if(labelText==="Live learning process")value.textContent=["RUNNING","PARTIAL_CONTEXT"].includes(state.phase)?"Running":state.phase==="ERROR"?"Error":"Starting";
         if(labelText==="Market-condition model")value.textContent=score&&state.phase==="RUNNING"?"Research only":"Pending";
       }
       if(callout){
