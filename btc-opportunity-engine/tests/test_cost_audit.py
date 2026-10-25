@@ -24,7 +24,7 @@ def flat_example():
 def test_flat_market_is_gross_breakeven_but_net_loss():
     bars,features=flat_example()
     out=build_outcomes(bars,features,Settings())
-    row=out.iloc[3]
+    row=out.loc[bars.index[3]]
     assert row["exit_reason"]=="TIME"
     assert row["gross_r"]==0.0
     assert row["net_r"]<0
@@ -39,7 +39,7 @@ def test_profitable_price_move_can_reach_target_with_costs():
     # never touches the stop, even though it crosses the target.
     bars.iloc[4,bars.columns.get_loc("high")]=80400.0
     out=build_outcomes(bars,features,Settings())
-    row=out.iloc[3]
+    row=out.loc[bars.index[3]]
     assert row["exit_reason"]=="TARGET"
     assert row["long_win"]==1
     assert 0<row["net_r"]<row["gross_r"]
@@ -48,8 +48,8 @@ def test_profitable_price_move_can_reach_target_with_costs():
 
 def test_reduced_fees_always_help_same_flat_trade():
     bars,features=flat_example()
-    full=build_outcomes(bars,features,Settings()).iloc[3]
+    full=build_outcomes(bars,features,Settings()).loc[bars.index[3]]
     free=build_outcomes(bars,features,
-                        Settings(fee_bps_per_side=0,slippage_bps_per_side=0)).iloc[3]
+                        Settings(fee_bps_per_side=0,slippage_bps_per_side=0)).loc[bars.index[3]]
     assert full["net_r"]<free["net_r"]
     assert free["net_r"]==0.0
