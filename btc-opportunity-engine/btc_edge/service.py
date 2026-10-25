@@ -39,6 +39,10 @@ _cache = {
     "progress": {"stage": "starting", "percent": 0},
     "events": [],
     "heartbeat_at": None,
+    "worker_heartbeat_at": None,
+    "data_venue": None,
+    "retry_at": None,
+    "rate_limit": None,
 }
 _last_train = 0.0
 
@@ -149,13 +153,13 @@ def evaluate_matured(db: sqlite3.Connection, candles: dict, features) -> dict:
 def cycle() -> None:
     """Fetch most recent closed bars, occasionally retrain, log forward scores."""
     global _last_train
-    from .market import ingest
+    from .market import ingest, PROVIDER
     from .features import load_candles, build_features
     from .learning import train, latest_score
     from .paper import install as install_paper, settle as settle_paper, queue_signal, summary as paper_summary
 
     save_state(phase="COLLECTING", message="Downloading completed exchange candles...",
-               last_error=None)
+               last_error=None, retry_at=None, rate_limit=None, data_venue=PROVIDER)
     stage("collecting", 0, "Starting candle collection")
     with connect(DB) as db:
         ensure_history(db)
@@ -206,7 +210,7 @@ def cycle() -> None:
         event("info", f"Research cycle finished · {score['status']}")
         if os.environ.get("DATABASE_URL"):
             from .persistence import checkpoint
-            checkpoint(DB)
+            checkpoint(DB, MODEL_DIR)
             event("info", "Saved durable PostgreSQL research checkpoint")
         save_state(
             phase="RUNNING" if score["status"] != "STALE_DATA" else "STALE_DATA",
@@ -221,7 +225,19 @@ def cycle() -> None:
         )
 
 
+def heartbeat() -> None:
+    """Independent liveness timestamp, not a claim that candles are progressing."""
+    while True:
+        try:
+            save_state(worker_heartbeat_at=timestamp())
+        except Exception:
+            LOG.exception("Could not update worker heartbeat")
+        time.sleep(15)
+
+
 def worker() -> None:
+    from .market import RateLimited, PROVIDER
+    save_state(data_venue=PROVIDER)
     if STATE.is_file():
         try:
             saved = json.loads(STATE.read_text())
@@ -234,6 +250,25 @@ def worker() -> None:
         started = time.monotonic()
         try:
             cycle()
+        except RateLimited as e:
+            LOG.warning("Exchange throttle: %s", e)
+            try:
+                if DB.is_file() and os.environ.get("DATABASE_URL"):
+                    from .persistence import checkpoint
+                    checkpoint(DB, MODEL_DIR)
+                    event("info", "Saved partial progress in PostgreSQL before API cooldown")
+            except Exception as backup_error:
+                LOG.exception("Unable to save partial progress")
+                event("error", f"Checkpoint failed: {backup_error}")
+            next_at = datetime.fromtimestamp(time.time() + e.retry_seconds, timezone.utc).isoformat()
+            event("warning", str(e))
+            save_state(phase="RATE_LIMITED", rate_limit={"status":e.status,"symbol":e.symbol,
+                "retry_seconds":e.retry_seconds}, retry_at=next_at,
+                last_error=str(e), message=f"Exchange has limited requests; pausing until {next_at}")
+            stage("rate_limited", _cache.get("progress", {}).get("percent", 0),
+                  "Exchange rate limit; waiting before further requests")
+            time.sleep(max(30, e.retry_seconds))
+            continue
         except Exception as e:
             LOG.exception("Research cycle failed")
             event("error", f"{type(e).__name__}: {str(e)[:250]}")
@@ -276,13 +311,14 @@ def main() -> None:
     if os.environ.get("DATABASE_URL"):
         try:
             from .persistence import restore
-            if restore(DB):
+            if restore(DB, MODEL_DIR):
                 LOG.info("Restored SQLite research from durable PostgreSQL checkpoint")
             else:
                 LOG.info("PostgreSQL database connected: no existing checkpoint")
         except Exception:
             LOG.exception("PostgreSQL restore failed; refusing to proceed unsafely")
             raise
+    threading.Thread(target=heartbeat, name="heartbeat", daemon=True).start()
     threading.Thread(target=worker, name="research-worker", daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     LOG.info("BTC research dashboard listening on 0.0.0.0:%s, DATA_DIR=%s", PORT, DATA_DIR)
