@@ -195,6 +195,7 @@ def cycle() -> None:
     """Fetch most recent closed bars, occasionally retrain, log forward scores."""
     global _last_train, _last_checkpoint, _last_paper_digest
     from .market import ingest, PROVIDER
+    from .history import coverage, backfill
     from .features import load_candles, build_features
     from .learning import train, latest_score
     from .paper import install as install_paper, settle as settle_paper, queue_signal, summary as paper_summary
@@ -218,18 +219,21 @@ def cycle() -> None:
         result = ingest(db, days=days, on_progress=report, on_retry=retry)
         event("info", f"Finished candle refresh across {len(result['candles'])} assets")
         stage("features", 80, "Calculating market features")
-        candles = load_candles(db, days=45)
+        archive_before = coverage(db)
+        extended_ready = archive_before["all_symbols_ready_for_74_day_window"]
+        candles = load_candles(db, days=76 if extended_ready else 45)
         features = build_features(candles)
         stage("features", 85, "Features calculated")
         trained = MODEL_DIR.joinpath("latest.json").exists()
         if not trained or time.time() - _last_train >= TRAIN_INTERVAL_SECONDS:
             save_state(phase="TRAINING", message="Fitting models and testing past-only holdout...")
             stage("training", 88, "Preparing future outcome labels")
+            active_settings = Settings(training_days=74, test_days=14, half_life_days=21) if extended_ready else Settings()
             train_result = train(
                 features,
                 __import__("btc_edge.outcomes", fromlist=["build_outcomes"]).build_outcomes(
-                    candles["BTCUSDT"], features, Settings()),
-                Settings(),
+                    candles["BTCUSDT"], features, active_settings),
+                active_settings,
                 MODEL_DIR,
             )
             stage("training", 96, "Training and historical evaluation complete")
@@ -264,6 +268,7 @@ def cycle() -> None:
             _last_paper_digest = digest
             event("info", "Saved durable PostgreSQL research checkpoint")
         save_state(
+            archive=archive_before, training_window_days=(74 if extended_ready else 30),
             phase="RUNNING" if score["status"] != "STALE_DATA" else "STALE_DATA",
             message=("Collecting observations and issuing paper-only forecasts."
                      if score["status"] != "STALE_DATA" else "Market data too old; forecasts suspended."),
@@ -275,6 +280,21 @@ def cycle() -> None:
             symbols_collected=len(result["candles"]), database_path=str(DB),
             persistent_volume_configured=bool(os.environ.get("RENDER_DISK_MOUNT_PATH") == str(DATA_DIR)),
         )
+        # Lower-priority archival retrieval: never prevents the current model
+        # from being scored or its results from being displayed.
+        try:
+            archive = backfill(db, pages=5,
+                on_progress=lambda progress: save_state(archive=progress["coverage"]),
+                on_retry=retry)
+            save_state(archive=archive)
+            if archive["rows_added_this_cycle"] and os.environ.get("DATABASE_URL"):
+                from .persistence import checkpoint
+                checkpoint(DB, MODEL_DIR)
+                event("info", "Archived older candles to PostgreSQL")
+            if archive["archive_complete"]:
+                event("info", "180-day archive is complete across all tracked markets")
+        except Exception as archive_error:
+            event("warning", "Archive backfill paused: " + str(archive_error)[:220])
 
 
 def heartbeat() -> None:
