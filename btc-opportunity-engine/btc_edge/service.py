@@ -434,8 +434,33 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             return self.respond(json.dumps(snapshot()).encode(), "application/json; charset=utf-8")
         if path == "/api/health":
-            return self.respond(json.dumps({"service": "ok", "research_phase": snapshot()["phase"]}).encode(),
-                                "application/json; charset=utf-8")
+            state = snapshot()
+            now_ms = int(time.time() * 1000)
+            def age_seconds(value):
+                if not value:
+                    return None
+                try:
+                    return round(max(0.0, time.time() - datetime.fromisoformat(
+                        value.replace("Z", "+00:00")).timestamp()), 1)
+                except (ValueError, TypeError):
+                    return None
+            worker_age = age_seconds(state.get("worker_heartbeat_at"))
+            score = state.get("score") or {}
+            last_candle = score.get("timestamp_open_ms")
+            score_age_min = (round((now_ms - int(last_candle) - INTERVAL_MS) / 60_000, 1)
+                             if last_candle is not None else None)
+            report = {
+                "service": "ok",
+                "research_phase": state.get("phase"),
+                "market_venue": state.get("data_venue"),
+                "worker_age_seconds": worker_age,
+                "worker_alive": worker_age is not None and worker_age < 90,
+                "score_age_minutes": score_age_min,
+                "last_completed_cycle_at": state.get("updated_at"),
+                "archive_state": state.get("archive_state"),
+                "durable_archive_checkpoint_at": state.get("archive_persisted_at"),
+            }
+            return self.respond(json.dumps(report).encode(), "application/json; charset=utf-8")
         self.respond(b'{"error":"not found"}', "application/json; charset=utf-8", 404)
 
     def log_message(self, fmt, *args):
