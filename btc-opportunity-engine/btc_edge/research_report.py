@@ -123,3 +123,24 @@ def report(db):
         "next_step":"Accumulate at least 100 distinct entries per cohort, 20 separate UTC days and a positive cost-adjusted result with uncertainty. Then validate on later untouched observations and compare with an identical-horizon control.",
         "important":"Winning first trades do not alter trained model scores. No hyperparameter or threshold is adjusted from these same outcomes.",
     }
+
+def recent_decisions(db, limit=96):
+    """Read-only forensic export: observed-time inputs versus later outcomes."""
+    limit=max(1,min(200,int(limit)))
+    rows=db.execute("""SELECT candle_open_ms,observed_at,model_id,
+        market_score,long_score,score_status,regime,
+        feature_json,gate_json,future_json
+        FROM research_decisions_v1
+        ORDER BY candle_open_ms DESC LIMIT ?""",(limit,)).fetchall()
+    return {
+        "mode":"FORENSIC_RESEARCH_ONLY",
+        "warning":"Future outcomes are annotated AFTER the recorded decision; all model scores and features were captured beforehand. Unfilled periods were not backfilled as live predictions.",
+        "count":len(rows),
+        "decisions":[{
+          "candle_open_ms":r[0],"observed_at":r[1],"model_id":r[2],
+          "market_score":r[3],"long_score":r[4],"score_status":r[5],
+          "regime":r[6],"features_at_decision":json.loads(r[7]),
+          "entry_and_rejection_gates":json.loads(r[8]),
+          "outcomes_observed_later":json.loads(r[9] or "{}"),
+        } for r in rows],
+    }
