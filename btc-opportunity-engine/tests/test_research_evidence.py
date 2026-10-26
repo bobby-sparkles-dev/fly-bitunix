@@ -7,6 +7,7 @@ from btc_edge.research_evidence import (
     wilson, daily_bootstrap_lower, cohort_evidence, score_buckets,
 )
 from btc_edge.research_log import install as research_install
+from btc_edge.score_probes import install as install_score_probes
 from btc_edge.research_report import report
 
 
@@ -14,6 +15,7 @@ def setup():
     db=sqlite3.connect(":memory:")
     install(db)
     research_install(db)
+    install_score_probes(db)
     db.execute("""
       CREATE TABLE live_forecasts(
         candle_open_ms INTEGER PRIMARY KEY,
@@ -67,10 +69,14 @@ def test_no_significance_calculated_from_one_day():
 def test_spaced_forecasts_not_equated_to_independent_candles():
     db=setup()
     for i in range(12):
-        db.execute("""INSERT INTO live_forecasts (
-           candle_open_ms,model_id,probability_long,outcome_win,outcome_net_r
-        ) VALUES (?,?,?,?,?)""",(i*300_000,"fixed",.1,i%2,1 if i%2 else -1))
+        db.execute("""INSERT INTO btc_score_probes (
+           candle_open_ms,horizon_bars,model_id,observed_at,
+           scheduled_entry_open_ms,p_market,p_long,status,
+           net_return_pct,max_favorable_pct,max_adverse_pct)
+           VALUES (?,?,?,?,?,?,?,'COMPLETE',?,?,?)
+        """,(i*300_000,6,"fixed","2026-10-26T08:00:00Z",
+             (i+2)*300_000,.5,.1,1 if i%2 else -1,1.,-1.))
     model=score_buckets(db)["models"][0]
-    assert model["overlapping_raw_observations"] == 12
+    assert model["raw_forward_observations"] == 12
     assert model["spaced_observations"] == 2
-    assert model["status"] == "INSUFFICIENT_OOS_EVIDENCE"
+    assert model["status"] == "INSUFFICIENT_FORWARD_EVIDENCE"
