@@ -150,60 +150,68 @@ def cohort_evidence(db) -> dict:
 
 
 def score_buckets(db) -> dict:
-    """Descriptive forward calibration of *original* 30-minute spot-long labels.
+    """Does a larger pre-recorded score precede better EXECUTABLE future returns?
 
-    Do not mix model versions when claiming score calibration; keep each
-    trained model identified, and subsample to nonoverlapping 30m decisions.
+    Do NOT call the results probability calibration: the model predicted a
+    DIFFERENT spot long bracket event, whereas these score probes evaluate
+    net 30-minute directional return from a next untouched candle.
     """
-    exists=db.execute("""
-        SELECT 1 FROM sqlite_master WHERE type='table'
-          AND name='live_forecasts'
-    """).fetchone()
     rows=db.execute("""
-      SELECT model_id,candle_open_ms,probability_long,
-             outcome_win,outcome_net_r
-      FROM live_forecasts
-      WHERE outcome_win IS NOT NULL
+      SELECT model_id,candle_open_ms,p_long,net_return_pct,
+             max_favorable_pct,max_adverse_pct
+      FROM btc_score_probes
+      WHERE status='COMPLETE' AND horizon_bars=6
       ORDER BY model_id,candle_open_ms
-    """).fetchall() if exists else []
+    """).fetchall()
     by_model=defaultdict(list)
-    for model,t,prob,win,net in rows:
-        by_model[model].append((int(t),float(prob),int(win),float(net)))
+    for model,t,prob,net,mfe,mae in rows:
+        if net is not None:
+            by_model[model].append((int(t),float(prob),float(net),mfe,mae))
     output=[]
     bins=(0.0,.05,.10,.20,.40,.60,.80,1.000001)
     for model,observed in sorted(by_model.items()):
         last=-10**30
         selected=[]
-        for r in observed:
-            if r[0]-last >= 30*60_000:
-                selected.append(r)
-                last=r[0]
+        for item in observed:
+            if item[0]-last>=30*60_000:
+                selected.append(item)
+                last=item[0]
         groups=[]
-        for lower,upper in zip(bins,bins[1:]):
-            subset=[r for r in selected if lower<=r[1]<upper]
+        for lo,hi in zip(bins,bins[1:]):
+            subset=[item for item in selected if lo<=item[1]<hi]
             n=len(subset)
             groups.append({
-                "range":f"{lower:.0%}–{min(upper,1):.0%}",
-                "n":n,
-                "predicted_avg":round(mean(r[1] for r in subset),4) if n else None,
-                "observed_net_win_rate":round(mean(r[2] for r in subset),4) if n else None,
-                "average_net_r":round(mean(r[3] for r in subset),4) if n else None
+              "range":f"{lo:.0%}–{min(hi,1):.0%}",
+              "n":n,
+              "predicted_avg":round(mean(x[1] for x in subset),4) if n else None,
+              "observed_net_positive_rate":
+                  round(mean(x[2]>0 for x in subset),4) if n else None,
+              "average_net_return_pct":
+                  round(mean(x[2] for x in subset),4) if n else None,
+              "mean_favorable_excursion_pct":
+                  round(mean(x[3] for x in subset if x[3] is not None),4)
+                  if n and all(x[3] is not None for x in subset) else None,
+              "mean_adverse_excursion_pct":
+                  round(mean(x[4] for x in subset if x[4] is not None),4)
+                  if n and all(x[4] is not None for x in subset) else None,
             })
-        brier=(mean((r[1]-r[2])**2 for r in selected) if selected else None)
         output.append({
-            "model_id":model,
-            "overlapping_raw_observations":len(observed),
-            "spaced_observations":len(selected),
-            "brier_spaced":round(brier,5) if brier is not None else None,
-            "status":"INSUFFICIENT_OOS_EVIDENCE" if len(selected)<200 else
-                     "EXPLORATORY_SCORE_CALIBRATION_ONLY",
-            "buckets":groups
+          "model_id":model,
+          "raw_forward_observations":len(observed),
+          "spaced_observations":len(selected),
+          "status":"INSUFFICIENT_FORWARD_EVIDENCE" if len(selected)<200
+                    else "EXPLORATORY_PRICE_DISCRIMINATION_ONLY",
+          "buckets":groups,
         })
     return {
-        "status":"RESEARCH_ONLY",
-        "label":"Original 30-minute spot-cost long outcome, not the newer futures-proxy experiments",
-        "models":output,
-        "warning":"30-minute spacing reduces overlapping labels but market-regime dependence remains. Model retraining, missing forecasts, low sample counts and different transaction costs limit interpretation."
+      "status":"FORWARD_PRICE_RESPONSE_DIAGNOSTIC",
+      "label":("30-minute net price-response from first untouched 5-minute candle "
+               "after the forecast was actually recorded, with futures-like proxy costs"),
+      "models":output,
+      "warning":("NOT calibrated long-win probabilities. The model was trained on "
+                 "a different 30-minute spot bracket label; these are observational "
+                 "net-return bins. Overlap, regimes, multiple models and proxy "
+                 "execution costs still limit confidence.")
     }
 
 
