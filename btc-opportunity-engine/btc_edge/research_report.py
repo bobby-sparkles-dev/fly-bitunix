@@ -89,7 +89,8 @@ def report(db):
         FROM research_decisions_v1 ORDER BY candle_open_ms""").fetchall()
     reason_counts=Counter()
     regimes=Counter()
-    score_groups=defaultdict(lambda: {"n":0,"winners":0,"market_n":0,"tradeable":0})
+    score_groups=defaultdict(lambda: {"n":0,"winners":0,
+                                      "net_return_pct_sum":0.0})
     model_pass=Counter()
     selected=set()
     for t,market,long_score,regime,gates,futures in decs:
@@ -104,21 +105,26 @@ def report(db):
         # Only one timestamp in each 30-minute block for a conservative
         # descriptive calibration sample. Still not independent across days.
         block=int(t)//(6*300000)
-        if block in selected or "30" not in future:
+        # Only score outcomes measured from the first untouched candle after
+        # live observation. Older "30" keys were historical assumptions that
+        # may use an entry before the prediction was recorded: DO NOT mix them.
+        label=future.get("30m")
+        if (block in selected or not label or
+            label.get("status")!="COMPLETE" or
+            label.get("net_return_pct") is None):
             continue
         selected.add(block)
-        labels=future["30"]
+        labels=label
         key=f"{int(min(0.999999,max(0,long_score))*10)*10}-{int(min(0.999999,max(0,long_score))*10)*10+10}%"
         item=score_groups[key]
         item["n"]+=1
-        item["winners"]+=int(bool(labels.get("strict_win",False)))
-        item["market_n"]+=1
-        item["tradeable"]+=int(bool(labels.get("market_tradeable",False)))
+        item["winners"]+=int(float(labels["net_return_pct"])>0)
+        item["net_return_pct_sum"]+=float(labels["net_return_pct"])
     return {
         "status":"RESEARCH_NOT_VALIDATED",
         "no_live_execution":True,
         "observed_candles":len(decs),
-        "forecast_windows_calibrated":len(selected),
+        "forecast_windows_analysed":len(selected),
         "strict_gate_observations":dict(model_pass),
         "market_regimes":dict(regimes),
         "entry_rejection_counts":dict(reason_counts),
@@ -128,7 +134,9 @@ def report(db):
         "cohorts":result,
         "chance_control":corrected,
         "separate_model_score_calibration":score_buckets(db),
-        "score_calibration_30m":dict(sorted(score_groups.items())),
+        "score_discrimination_30m":dict(sorted(score_groups.items())),
+        "score_discrimination_warning":
+          "30-minute next untouched candle net returns, not probability calibration.",
         "next_step":"Treat the first results as setup tests, not evidence of an edge. Before recommending even another research candidate, require at least 200 non-overlapping settled trades in the same cohort across 20+ UTC days, a 12-way-adjusted win-rate lower bound above 55%, positive day-bootstrap net returns, and better results than its same-horizon reference. Then run a separately committed forward holdout.",
         "important":"Winning first trades do not alter trained model scores. No hyperparameter or threshold is adjusted from these same outcomes.",
     }
