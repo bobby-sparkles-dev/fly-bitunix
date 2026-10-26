@@ -152,7 +152,9 @@ def train(features: pd.DataFrame, outcomes: pd.DataFrame, settings: Settings, ou
     out.mkdir(parents=True, exist_ok=True)
     # Keep immutable model snapshots, with a copy of the latest for CLI scoring.
     (out / f"model-{payload['model_id']}.json").write_text(json.dumps(payload, indent=2))
-    (out / "latest.json").write_text(json.dumps(payload, indent=2))
+    temp_latest = out / "latest.json.tmp"
+    temp_latest.write_text(json.dumps(payload, indent=2))
+    temp_latest.replace(out / "latest.json")
     return payload
 
 
