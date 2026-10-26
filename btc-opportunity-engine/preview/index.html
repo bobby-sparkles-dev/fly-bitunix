@@ -212,6 +212,16 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
   button, .progress-fill { transition: none; }
 }
 .reload-link{display:inline-flex;align-items:center;justify-content:center;border:1px solid #cbb9eb;border-radius:11px;padding:10px 14px;color:#393057;background:#eee9ff;font-weight:750;font-size:14px;text-decoration:none}.reload-link:hover{background:#e1d8ff}.initial-chart{border:1px solid #e7e5dc;border-radius:12px;background:#fafbf7;padding:8px;margin-bottom:10px;overflow:hidden}.initial-chart svg{width:100%;height:auto;max-height:260px;display:block}[hidden]{display:none!important}
+
+#shadow-cohorts {display:grid; gap:10px;}
+.shadow-row {display:flex; justify-content:space-between; gap:12px; border:1px solid var(--line);background:#fafcf9;padding:12px 14px;border-radius:12px;align-items:flex-start;}
+.shadow-row:nth-child(3n + 2){background:#f4f0ff;}
+.shadow-row:nth-child(3n + 3){background:#f0f9ff;}
+.shadow-row strong {font-size:13px;line-height:1.4;color:var(--ink);}
+.shadow-row .shadow-meta {display:block;font-size:11px;color:var(--muted);margin-top:2px;}
+.shadow-result {font-size:12px;text-align:right;white-space:nowrap;}
+#shadow-history .row{font-size:12px;}
+@media(max-width:490px){.shadow-row{gap:7px;padding:10px;}.shadow-row strong{font-size:12px;}.shadow-result{font-size:11px;}}
 </style>
 <script>
 window.addEventListener("error",function(e){
@@ -256,8 +266,26 @@ window.addEventListener("unhandledrejection",function(e){
  <div class="info" id="research-only-explanation">Research only means the strategy has not passed historical validation. It can still record paper trades; it cannot send real orders.</div>
  <div class="info">A 70/100 market score means the model estimates a 70% chance of its defined market condition, not a 70% chance your trade wins. Scores are uncalibrated research estimates. No green light is a trade instruction.</div>
 </section>
-<section class="panel" style="margin-bottom:16px" aria-label="Paper trade results">
- <div class="headingrow"><h2>Paper trading: actual forward results</h2><span class="pill">NO REAL MONEY</span></div>
+<section class="panel" style="margin-bottom:16px" aria-label="Experimental BTC paper trades">
+  <div class="headingrow">
+    <div><div class="eyebrow">NEW · PRE-REGISTERED RESEARCH</div><h2>Experimental paper trades</h2></div>
+    <span class="pill">SIMULATED · NO MONEY</span>
+  </div>
+  <p class="muted" style="margin:0 0 12px">Unlike the strict model below, these trials test entry ideas without requiring two 62% scores. They only enter after a real completed candle is observed, and we record every result.</p>
+  <div class="grid3">
+    <div class="stat"><label>Waiting to enter</label><strong id="shadow-queued">—</strong><em>Queued after a real-time observation</em></div>
+    <div class="stat"><label>Open experiments</label><strong id="shadow-open">—</strong><em>Simulated positions, not orders</em></div>
+    <div class="stat"><label>Finished experiments</label><strong id="shadow-closed">—</strong><em>Wins and losses measured after costs</em></div>
+  </div>
+  <div class="info" id="shadow-mode-note">Waiting for research engine to record its first forward-only experiment.</div>
+  <div class="headingrow" style="margin-top:20px"><h2>Compare the 12 experiments</h2><small>30m, 1h, 2h, 4h</small></div>
+  <div id="shadow-cohorts"><span class="muted">Waiting for experimental trial results…</span></div>
+  <div class="headingrow" style="margin-top:20px"><h2>Latest experimental entries</h2><small id="shadow-recent-note">Paper only</small></div>
+  <div id="shadow-history" class="muted">No recorded experiments yet.</div>
+  <div class="info">The hourly reference is deliberately unfiltered to check that the simulator works, not to recommend buying. Rebound and breakout experiments are different hypotheses. Results overlap across holding periods and are <strong>not independent trades</strong>. Source is Binance.US spot prices with assumed futures-like fees, not Bitunix executable futures quotes. No funding, account-specific fees or leverage model.</div>
+</section>
+<section class="panel" style="margin-bottom:16px" aria-label="Strict model paper trade results">
+ <div class="headingrow"><h2>Strict 62% / 62% model strategy</h2><span class="pill">NO REAL MONEY</span></div>
  <div class="grid3">
   <div class="stat"><label>Waiting to enter</label><strong id="paper-queued">0</strong><em>Next eligible full candle</em></div>
   <div class="stat"><label>Currently open</label><strong id="paper-open">0</strong><em>Virtual BTC positions</em></div>
@@ -507,6 +535,61 @@ load();
       item.append(left,right);history.append(item);
     }
   }
+  function showShadow(s){
+    const sh=s.shadow_trials, labels={
+      hourly_reference:"Hourly reference (control)",
+      momentum_breakout:"Momentum breakout",
+      dip_rebound:"Dip + rebound"
+    };
+    const put=(id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
+    if(!sh){
+      put("shadow-mode-note","The experimental simulator is starting. The strict model remains separate.");
+      return;
+    }
+    const totals=sh.trials||{};
+    put("shadow-queued",totals.queued??0);
+    put("shadow-open",totals.open??0);
+    put("shadow-closed",totals.completed??0);
+    const overallCount=Number(totals.completed||0);
+    put("shadow-mode-note","Forward-only experimental trials active · "+
+      (totals.queued||0)+" queued, "+(totals.open||0)+" open, "+
+      overallCount+" settled ("+(totals.wins||0)+" wins / "+(totals.losses||0)+" losses). "+
+      "Do not treat grouped outcomes as independent or validated.");
+    const cohorts=document.getElementById("shadow-cohorts");
+    cohorts.replaceChildren();
+    const ordered=["hourly_reference","momentum_breakout","dip_rebound"];
+    for(const strategy of ordered)for(const minutes of [30,60,120,240]){
+      const row=(sh.cohorts||[]).find(c=>c.strategy_id===strategy&&c.horizon_minutes===minutes);
+      const item=document.createElement("div");item.className="shadow-row";
+      const left=document.createElement("div");
+      const name=document.createElement("strong");name.textContent=labels[strategy]+" · "+(minutes>=60?minutes/60+"h":minutes+"m");
+      const meta=document.createElement("span");meta.className="shadow-meta";
+      meta.textContent="Queued "+(row?.queued||0)+" · Open "+(row?.open||0)+" · Finished "+(row?.completed||0);
+      left.append(name,meta);
+      const right=document.createElement("div");right.className="shadow-result";
+      const rate=document.createElement("strong");
+      rate.textContent=typeof row?.win_rate==="number"?(row.win_rate*100).toFixed(1)+"% wins":"Awaiting results";
+      const average=document.createElement("span");average.className="shadow-meta";
+      average.textContent=typeof row?.mean_net_r==="number"?
+        (row.mean_net_r>=0?"+":"")+row.mean_net_r.toFixed(2)+" R average":"No settled results";
+      right.append(rate,average);item.append(left,right);cohorts.append(item);
+    }
+    const history=document.getElementById("shadow-history");history.replaceChildren();
+    for(const trial of (sh.recent||[]).slice(0,8)){
+      const line=document.createElement("div");line.className="row";
+      const left=document.createElement("span");
+      left.textContent=(labels[trial.strategy_id]||trial.strategy_id)+" · "+
+         trial.horizon_minutes+"m · "+String(trial.status)+
+         " · "+(trial.observed_at?new Date(trial.observed_at).toLocaleString("en-GB",{hour:"2-digit",minute:"2-digit"}):"");
+      const right=document.createElement("strong");
+      right.className=trial.status==="WIN"?"green":trial.status==="LOSS"?"red":"status";
+      right.textContent=typeof trial.net_r==="number"?(trial.net_r>=0?"+":"")+trial.net_r.toFixed(2)+" R":"Pending";
+      line.append(left,right);history.append(line);
+    }
+    if(!history.children.length)history.textContent="First forward trial has not been recorded yet.";
+    const cost=sh.research_costs||{};
+    put("shadow-recent-note","Assumed round-trip costs: "+(cost.round_trip_bps_approx??"—")+" bps");
+  }
   let statusPending=false;
   async function tick(){
     if(statusPending)return;
@@ -647,6 +730,7 @@ load();
          (bt.trades+" selected historical trades · "+(typeof bt.win_rate==="number"?asPct(bt.win_rate):"no win rate")+
           " wins · mean "+(typeof bt.mean_net_r==="number"?bt.mean_net_r.toFixed(2)+" R":"—")+" after assumed costs. Past performance is not a forward result.")
          :"No historical evaluation available.");
+      showShadow(state);
       showPaper(state);
       const diag=state.decision_diagnostics;
       if(diag){
