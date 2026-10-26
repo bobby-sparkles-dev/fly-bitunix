@@ -8,6 +8,7 @@ from btc_edge.research_evidence import (
 )
 from btc_edge.research_log import install as research_install
 from btc_edge.score_probes import install as install_score_probes
+from btc_edge.score_probes import install as install_score_probes
 from btc_edge.research_report import report
 
 
@@ -68,14 +69,16 @@ def test_no_significance_calculated_from_one_day():
 
 def test_spaced_forecasts_not_equated_to_independent_candles():
     db=setup()
+    observed="2026-10-26T08:07:00+00:00"
     for i in range(12):
         db.execute("""INSERT INTO btc_score_probes (
-           candle_open_ms,horizon_bars,model_id,observed_at,
-           scheduled_entry_open_ms,p_market,p_long,status,
-           net_return_pct,max_favorable_pct,max_adverse_pct)
-           VALUES (?,?,?,?,?,?,?,'COMPLETE',?,?,?)
-        """,(i*300_000,6,"fixed","2026-10-26T08:00:00Z",
-             (i+2)*300_000,.5,.1,1 if i%2 else -1,1.,-1.))
+            candle_open_ms,horizon_bars,model_id,observed_at,
+            scheduled_entry_open_ms,p_market,p_long,status,
+            net_return_pct,max_favorable_pct,max_adverse_pct)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+            (i*300_000,6,"fixed",observed,(i+2)*300_000,
+             .5,.1,"COMPLETE",.2 if i%2 else -.2,.4,-.3))
+    db.commit()
     model=score_buckets(db)["models"][0]
     assert model["raw_forward_observations"] == 12
     assert model["spaced_observations"] == 2
