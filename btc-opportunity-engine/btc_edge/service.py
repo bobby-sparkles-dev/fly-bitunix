@@ -238,6 +238,9 @@ def live_cycle() -> None:
     from .learning import latest_score
     from .paper import install as install_paper, settle as settle_paper
     from .paper import queue_signal, summary as paper_summary
+    from .shadow_paper import (install as install_shadow,
+        settle as settle_shadow, queue_new as queue_shadow,
+        summary as shadow_summary)
 
     _live_busy.set()
     try:
@@ -247,6 +250,7 @@ def live_cycle() -> None:
         with connect(DB) as db:
             ensure_history(db)
             install_paper(db)
+            install_shadow(db)
             count = db.execute("SELECT COUNT(*) FROM candles WHERE symbol='BTCUSDT'").fetchone()[0]
             result = ingest(db, days=37 if count < 500 else 2,
                 on_progress=lambda p: stage("collecting", p["percent"] * .78,
@@ -275,6 +279,18 @@ def live_cycle() -> None:
                 atr = float(features.loc[int(score["timestamp_open_ms"]), "atr_at_decision"])
                 if queue_signal(db, score, atr):
                     event("info", "Queued a virtual BTC long for the next eligible candle")
+            # Experimental strategies use independent, transparent entry rules.
+            # They are never labelled as model-approved entries.
+            changes = settle_shadow(db, candles["BTCUSDT"])
+            queued = queue_shadow(db, candles["BTCUSDT"], features, score)
+            shadow = shadow_summary(db)
+            if queued:
+                LOG.info("SHADOW PAPER QUEUED count=%s strategies=%s",
+                         len(queued), [(x["strategy_id"], x["horizon_bars"]) for x in queued])
+                event("info", f"Experimental paper entries queued: {len(queued)}")
+            if changes:
+                LOG.info("SHADOW PAPER UPDATED positions=%s settled=%s",
+                         changes, shadow["trials"]["completed"])
             ledger = paper_summary(db)
             decisions = decision_diagnostics(db, score, ledger)
             forward = evaluate_matured(db, candles, features)
@@ -304,6 +320,8 @@ def live_cycle() -> None:
                               else "RUNNING" if persistence_ok else "PERSISTENCE_DEGRADED"),
                        message=message, updated_at=timestamp(), last_error=None,
                        score=score, forward_observations=forward, paper_trades=ledger,
+                       shadow_trials=shadow,
+                       shadow_mode="FORWARD_PAPER_EXPERIMENTS_ONLY",
                        decision_diagnostics=decisions, data_venue=PROVIDER,
                        last_training_at=model.get("trained_at"),
                        training_window_days=model["settings"]["training_days"],
