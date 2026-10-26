@@ -298,6 +298,22 @@ def live_cycle() -> None:
             ledger = paper_summary(db)
             decisions = decision_diagnostics(db, score, ledger)
             forward = evaluate_matured(db, candles, features)
+            evidence = None
+            research_working = False
+            try:
+                logged = log_decision(db, candles["BTCUSDT"], features, score,
+                                      queued, int(time.time()*1000))
+                matured_count = mature_research(db, candles["BTCUSDT"])
+                evidence = evidence_report(db)
+                research_working = True
+                save_state(research_log_at=timestamp(), research_log_error=None,
+                           research_logged_this_cycle=logged,
+                           research_outcomes_matured_this_cycle=matured_count)
+            except Exception as exc:
+                LOG.exception("DECISION SNAPSHOT LOG FAILED")
+                save_state(research_log_error=str(exc)[:220])
+                event("error", "Research decision logging failed")
+
 
             # A prediction is evidence only if we retain its original timestamp.
             # Persist individual forecasts/trades without waiting for bulk backups.
