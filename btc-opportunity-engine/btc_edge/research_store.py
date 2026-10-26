@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS btc_research_model_versions_v1(
 """
 
 def pg_setup(cur):
-    cur.execute(SCHEMA)
+    for statement in SCHEMA.split(";"):
+        if statement.strip():
+            cur.execute(statement)
 
 def pg_sync(db,cur,model_dir):
     from psycopg.types.json import Jsonb
