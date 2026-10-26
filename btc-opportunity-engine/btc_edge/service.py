@@ -470,13 +470,13 @@ def persistence_worker() -> None:
     _bootstrapped.wait()
     last_saved = time.monotonic()
     while True:
-        # Archive and model changes are persisted periodically; never capture
+        # Archive and model changes are persisted every 30 minutes; never capture
         # multiple overlapping versions in the same process.
         pending = _checkpoint_requested.wait(timeout=60)
-        due = time.monotonic()-last_saved >= 900
+        due = time.monotonic()-last_saved >= 1800
         if pending and not due:
             # Event.wait() returns immediately while set, so do not spin CPU.
-            time.sleep(min(60, max(1, 900-(time.monotonic()-last_saved))))
+            time.sleep(min(60, max(1, 1800-(time.monotonic()-last_saved))))
             continue
         if not pending and not due:
             continue
