@@ -90,6 +90,8 @@ def sync_from_sqlite(db: sqlite3.Connection) -> dict:
                       evaluated_at=COALESCE(EXCLUDED.evaluated_at,
                            btc_forward_forecasts_v1.evaluated_at),
                       updated_at=NOW()
+                    WHERE btc_forward_forecasts_v1.outcome_win IS NULL
+                      AND EXCLUDED.outcome_win IS NOT NULL
                 """, [(PROVIDER, *row) for row in recent])
             if trades:
                 cur.executemany("""
