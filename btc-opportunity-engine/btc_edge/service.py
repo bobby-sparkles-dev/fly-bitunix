@@ -242,6 +242,7 @@ def live_cycle() -> None:
         settle as settle_shadow, queue_new as queue_shadow,
         summary as shadow_summary)
     from .research_log import install as install_research, record as log_decision
+    from .score_probes import install as install_probes, record as record_probe
     from .research_outcomes import mature as mature_research
     from .research_report import report as evidence_report
 
@@ -255,6 +256,7 @@ def live_cycle() -> None:
             install_paper(db)
             install_shadow(db)
             install_research(db)
+            install_probes(db)
             count = db.execute("SELECT COUNT(*) FROM candles WHERE symbol='BTCUSDT'").fetchone()[0]
             result = ingest(db, days=37 if count < 500 else 2,
                 on_progress=lambda p: stage("collecting", p["percent"] * .78,
@@ -301,14 +303,21 @@ def live_cycle() -> None:
             evidence = None
             research_working = False
             try:
+                decision_ms = int(time.time()*1000)
                 logged = log_decision(db, candles["BTCUSDT"], features, score,
-                                      queued, int(time.time()*1000))
-                matured_count = mature_research(db, candles["BTCUSDT"])
+                                      queued, decision_ms)
+                newly_monitored = record_probe(db,score,observed_ms=decision_ms)
+                matured_count = mature_research(db, candles["BTCUSDT"],
+                                                now_ms=decision_ms)
                 evidence = evidence_report(db)
+                if logged:
+                    LOG.info("POINT-IN-TIME MARKET SNAPSHOT model=%s candle=%s probes_added=%d",
+                             score["model_id"],score["timestamp_open_ms"],newly_monitored)
                 research_working = True
                 save_state(research_log_at=timestamp(), research_log_error=None,
                            research_logged_this_cycle=logged,
-                           research_outcomes_matured_this_cycle=matured_count)
+                           research_outcomes_matured_this_cycle=matured_count,
+                           score_probes_created_this_cycle=newly_monitored)
             except Exception as exc:
                 LOG.exception("DECISION SNAPSHOT LOG FAILED")
                 save_state(research_log_error=str(exc)[:220])
