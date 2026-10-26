@@ -301,7 +301,7 @@ window.addEventListener("unhandledrejection",function(e){
  <div class="grid3">
   <div class="stat"><label>Unique entry times</label><strong id="evidence-unique">—</strong><em>Same-candle strategies share one opportunity</em></div>
   <div class="stat"><label>Market decisions logged</label><strong id="evidence-decisions">—</strong><em>Scores and rejected signals recorded</em></div>
-  <div class="stat"><label>30-min outcomes observed</label><strong id="evidence-labelled">—</strong><em>Subsequent outcomes, not historical guesses</em></div>
+  <div class="stat"><label>30-min outcomes observed</label><strong id="evidence-labelled">—</strong><em>Executed-after-observation price tests</em></div>
  </div>
  <div class="info" id="research-evidence-note">Saving pre-move indicators and comparing separate entry opportunities. Early wins do not raise the model's scores.</div>
  <div class="info" id="research-multiple-test-caution" style="background:#fff1dc;border-color:#e8d7b6">
@@ -630,7 +630,7 @@ load();
     put("evidence-validation","NOT VALIDATED");
     put("evidence-unique",report.unique_signal_timestamps??0);
     put("evidence-decisions",report.observed_candles??0);
-    put("evidence-labelled",report.forecast_windows_calibrated??0);
+    put("evidence-labelled",report.forecast_windows_analysed??0);
     const chance=report.chance_control;
     const rawCalibration=report.separate_model_score_calibration;
     if(chance){
@@ -693,13 +693,14 @@ load();
       const n=separate.reduce((sum,m)=>sum+Number(m.spaced_observations||0),0);
       const warning=document.createElement("div");
       warning.className="info";
-      warning.textContent="Original model predictions: "+n+
-        " later-evaluated, 30-minute-spaced observations across model versions. "+
-        "Those scores predict a different SPOT-cost trade from the new paper experiments. "+
-        "Low scores are not overwritten by winning experimental trades. ";
+      warning.textContent="Original model scores: "+n+
+        " evaluated forward, 30-minute-spaced observations across saved model versions. "+
+        "This comparison starts at the FIRST untouched candle after observation and measures "+
+        "futures-cost-proxy net returns, not the probability event the original model was trained to predict. "+
+        "Winning experimental paper trades never automatically raise model scores.";
       calibration.append(warning);
     }
-    const bins=Object.entries(report.score_calibration_30m||{});
+    const bins=Object.entries(report.score_discrimination_30m||{});
     if(!bins.length){
       calibration.textContent="No independent 30-minute forecast comparisons have matured.";
     } else {
@@ -708,7 +709,7 @@ load();
         const name=document.createElement("strong");name.textContent="Score "+range;
         const label=document.createElement("span");
         label.textContent=(v.n||0)+" separated intervals · "+
-          (v.n?Math.round(100*(v.winners||0)/v.n)+"% net-positive":"pending")+
+          (v.n?Math.round(100*(v.winners||0)/v.n)+"% net-positive over 30m":"pending")+
           (v.n<20?" · tiny sample":"");
         chip.append(name,label);calibration.append(chip);
       }
