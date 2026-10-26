@@ -408,12 +408,26 @@ def archive_worker() -> None:
             time.sleep(120)
 
 
-def model_worker() -> None:
-    """Train periodically WITHOUT blocking the live forecast loop."""
+def fit_model_in_isolated_scope(settings: Settings, extended_ready: bool) -> dict:
+    """Let large candle/feature frames be freed immediately after fitting."""
+    import gc
     from .features import load_candles, build_features
-    from .history import coverage
     from .outcomes import build_outcomes
     from .learning import train
+    try:
+        with connect(DB) as db:
+            candles = load_candles(db, days=76 if extended_ready else 45)
+        features = build_features(candles)
+        outcome = build_outcomes(candles["BTCUSDT"], features, settings)
+        return train(features, outcome, settings, MODEL_DIR)
+    finally:
+        # On paid 512MB Render, don't retain historic frames in a sleeping worker.
+        gc.collect()
+
+
+def model_worker() -> None:
+    """Train periodically WITHOUT blocking the live forecast loop."""
+    from .history import coverage
     _bootstrapped.wait()
     while True:
         latest_file = MODEL_DIR / "latest.json"
@@ -441,11 +455,7 @@ def model_worker() -> None:
                 save_state(training_status="TRAINING",
                            training_started_at=timestamp())
                 LOG.info("BACKGROUND TRAINING START window_days=%s",settings.training_days)
-                with connect(DB) as db:
-                    candles = load_candles(db, days=76 if extended_ready else 45)
-                features = build_features(candles)
-                outcome = build_outcomes(candles["BTCUSDT"], features, settings)
-                result = train(features, outcome, settings, MODEL_DIR)
+                result = fit_model_in_isolated_scope(settings, extended_ready)
                 LOG.info("BACKGROUND TRAINING OK model=%s", result["model_id"])
                 save_state(training_status="READY",training_finished_at=timestamp(),
                            last_training_at=result["trained_at"],
