@@ -1,11 +1,9 @@
-name: BTC Signal Lab scheduled wake and health
-# The research app currently runs on a free Render web service. This is a
-# best-effort five-minute wake/check, NOT a guaranteed 24/7 worker.
-# GitHub scheduled workflows can be delayed/dropped. For production use,
-# move collection to an always-on service or a dedicated scheduled worker.
+name: BTC Signal Lab hourly health monitor
+# Paid Render service is always on. This hourly read-only health check
+# reports liveness; it does not run the trading engine.
 on:
   schedule:
-    - cron: '2-59/5 * * * *'
+    - cron: '7 * * * *'
   workflow_dispatch:
 
 permissions:
