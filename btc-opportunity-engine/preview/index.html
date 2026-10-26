@@ -222,6 +222,15 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 .shadow-result {font-size:12px;text-align:right;white-space:nowrap;}
 #shadow-history .row{font-size:12px;}
 @media(max-width:490px){.shadow-row{gap:7px;padding:10px;}.shadow-row strong{font-size:12px;}.shadow-result{font-size:11px;}}
+#evidence-analysis-rows{display:grid;gap:8px}
+.evidence-row{display:flex;gap:12px;justify-content:space-between;border-bottom:1px solid var(--line);padding:9px 0}
+.evidence-row:last-child{border:0}
+.evidence-row small{display:block;color:var(--muted);font-size:11px}
+.evidence-right{text-align:right;min-width:105px;font-size:12px}
+#score-calibration{display:flex;flex-wrap:wrap;gap:8px}
+.calibration-chip{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#eef8f5;font-size:12px}
+.calibration-chip strong{display:block}
+@media(max-width:490px){.evidence-row{gap:7px}.evidence-right{min-width:92px}}
 </style>
 <script>
 window.addEventListener("error",function(e){
@@ -283,6 +292,24 @@ window.addEventListener("unhandledrejection",function(e){
   <div class="headingrow" style="margin-top:20px"><h2>Latest experimental entries</h2><small id="shadow-recent-note">Paper only</small></div>
   <div id="shadow-history" class="muted">No recorded experiments yet.</div>
   <div class="info">The hourly reference is deliberately unfiltered to check that the simulator works, not to recommend buying. Rebound and breakout experiments are different hypotheses. Results overlap across holding periods and are <strong>not independent trades</strong>. Source is Binance.US spot prices with assumed futures-like fees, not Bitunix executable futures quotes. No funding, account-specific fees or leverage model.</div>
+</section>
+<section class="panel" style="margin-bottom:16px" aria-label="Trading evidence and learning">
+ <div class="headingrow">
+   <div><div class="eyebrow">RESEARCH INTEGRITY</div><h2>Are the results better than chance?</h2></div>
+   <span class="pill" id="evidence-validation">NOT VALIDATED</span>
+ </div>
+ <div class="grid3">
+  <div class="stat"><label>Unique entry times</label><strong id="evidence-unique">—</strong><em>Same-candle strategies share one opportunity</em></div>
+  <div class="stat"><label>Market decisions logged</label><strong id="evidence-decisions">—</strong><em>Scores and rejected signals recorded</em></div>
+  <div class="stat"><label>30-min outcomes observed</label><strong id="evidence-labelled">—</strong><em>Subsequent outcomes, not historical guesses</em></div>
+ </div>
+ <div class="info" id="research-evidence-note">Saving pre-move indicators and comparing separate entry opportunities. Early wins do not raise the model's scores.</div>
+ <div class="headingrow" style="margin-top:20px"><h2>Confidence by experiment</h2><small>95% win-rate intervals and net R</small></div>
+ <div id="evidence-analysis-rows" aria-live="polite"><span class="muted">Awaiting forward-trial evidence.</span></div>
+ <div class="headingrow" style="margin-top:20px"><h2>Were higher long scores more accurate?</h2></div>
+ <div id="score-calibration"><span class="muted">Awaiting completed forecast horizons.</span></div>
+ <div class="info">Not a trading approval. We require sufficient distinct opportunities, observations across multiple days, positive returns after costs, and confirmation on later untouched data. The 12 tests share some market events. A high early win rate may be luck. The engine will not automatically change its thresholds or place orders.</div>
+ <p class="muted" style="font-size:12px;margin-top:16px">Read-only data: <a href="/api/research" target="_blank" rel="noopener">Research summary</a> · <a href="/api/research/decisions" target="_blank" rel="noopener">Recorded decision-time indicators and later outcomes</a>.</p>
 </section>
 <section class="panel" style="margin-bottom:16px" aria-label="Strict model paper trade results">
  <div class="headingrow"><h2>Strict 62% / 62% model strategy</h2><span class="pill">NO REAL MONEY</span></div>
