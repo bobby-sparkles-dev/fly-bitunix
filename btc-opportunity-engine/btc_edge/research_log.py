@@ -75,3 +75,56 @@ def record(db, btc, features, score, queued, observed_ms):
        json.dumps(values,allow_nan=False),json.dumps(gates,allow_nan=False)))
     db.commit()
     return bool(cur.rowcount)
+
+
+def attach_matured_outcomes(db, now_ms=None) -> int:
+    """Append later price tests only after the true forward window closes.
+
+    The original feature_json and gate_json remain unchanged forever.
+    Results explicitly state they begin at the first untouched future candle,
+    not at the price known before the prediction was recorded.
+    """
+    import time
+    if now_ms is None:
+        now_ms=int(time.time()*1000)
+    rows=db.execute("""
+      SELECT candle_open_ms,horizon_bars,status,scheduled_entry_open_ms,
+             entry_price,exit_price,net_return_pct,gross_return_pct,
+             max_favorable_pct,max_adverse_pct,closed_at,invalid_reason
+      FROM btc_score_probes WHERE status IN ('COMPLETE','INVALID_DATA')
+      ORDER BY candle_open_ms DESC LIMIT 3000
+    """).fetchall()
+    per_candle={}
+    for (candle,h,status,entry_ms,entry,exit_price,net,gross,favorable,
+         adverse,closed,invalid) in rows:
+        item=per_candle.setdefault(candle,{})
+        key=str(int(h)*5)+"m"
+        item[key]={
+          "status":status,"simulated_entry_open_ms":entry_ms,
+          "entry_price":entry,"exit_price":exit_price,
+          "net_return_pct":net,"gross_return_pct":gross,
+          "max_favorable_pct":favorable,"max_adverse_pct":adverse,
+          "computed_at":closed,"invalid_reason":invalid,
+          "forward_only":True
+        }
+    count=0
+    for candle,future in per_candle.items():
+        old=db.execute("""
+          SELECT future_json FROM research_decisions_v1 WHERE candle_open_ms=?
+        """,(candle,)).fetchone()
+        if not old:
+            continue
+        old_json=json.loads(old[0] or "{}")
+        changed=False
+        for key,payload in future.items():
+            if old_json.get(key)!=payload:
+                old_json[key]=payload
+                changed=True
+        if changed:
+            db.execute("""
+              UPDATE research_decisions_v1 SET future_json=?,
+                last_evaluated_at=? WHERE candle_open_ms=?
+            """,(json.dumps(old_json,separators=(",",":")),iso(now_ms),candle))
+            count+=1
+    db.commit()
+    return count
