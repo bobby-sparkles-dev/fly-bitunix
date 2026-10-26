@@ -61,6 +61,8 @@ def setup(cur) -> None:
     pg_install(cur)
     from .research_store import pg_setup
     pg_setup(cur)
+    from .score_probes import pg_install as install_score_probes
+    install_score_probes(cur)
 
 
 def sync_from_sqlite(db: sqlite3.Connection, model_dir=None) -> dict:
@@ -112,10 +114,13 @@ def sync_from_sqlite(db: sqlite3.Connection, model_dir=None) -> dict:
             from .research_store import pg_sync as sync_research
             research_sync = (sync_research(db,cur,model_dir) if model_dir is not None
                              else {"decision_snapshots":0,"model_saved":False})
+            from .score_probes import pg_sync as sync_score_probes
+            probe_sync_count=sync_score_probes(db,cur)
         conn.commit()
     return {"enabled": True, "forecasts": len(recent),
             "paper_trades": len(trades),"shadow_trials":shadow_count,
-            "research":research_sync}
+            "research":research_sync,
+            "score_probes_synced":probe_sync_count}
 
 
 def restore_into_sqlite(db: sqlite3.Connection) -> dict:
@@ -142,6 +147,8 @@ def restore_into_sqlite(db: sqlite3.Connection) -> dict:
             shadow_payloads=pg_fetch(cur)
             from .research_store import restore_recent
             restored_research = restore_recent(db,cur)
+            from .score_probes import pg_restore
+            restored_probes_payloads=pg_restore(cur)
     for row in predictions:
         db.execute("""
             INSERT INTO live_forecasts (
@@ -170,7 +177,11 @@ def restore_into_sqlite(db: sqlite3.Connection) -> dict:
     from .shadow_paper import install as install_shadow, sqlite_restore
     install_shadow(db)
     shadow_restored=sqlite_restore(db,shadow_payloads)
+    from .score_probes import install as install_probes, sqlite_restore as load_probes
+    install_probes(db)
+    probes_restored=load_probes(db,restored_probes_payloads)
     db.commit()
     return {"enabled": True, "forecasts": len(predictions),
             "paper_trades": len(paper), "shadow_trials":shadow_restored,
-            "research_decisions":restored_research}
+            "research_decisions":restored_research,
+            "score_probes":probes_restored}
