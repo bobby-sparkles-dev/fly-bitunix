@@ -304,6 +304,9 @@ window.addEventListener("unhandledrejection",function(e){
   <div class="stat"><label>30-min outcomes observed</label><strong id="evidence-labelled">—</strong><em>Subsequent outcomes, not historical guesses</em></div>
  </div>
  <div class="info" id="research-evidence-note">Saving pre-move indicators and comparing separate entry opportunities. Early wins do not raise the model's scores.</div>
+ <div class="info" id="research-multiple-test-caution" style="background:#fff1dc;border-color:#e8d7b6">
+  Chance safeguard: simultaneous comparison of 12 strategies, independent days, conservative intervals and net returns. Early success remains unproven.
+ </div>
  <div class="headingrow" style="margin-top:20px"><h2>Confidence by experiment</h2><small>95% win-rate intervals and net R</small></div>
  <div id="evidence-analysis-rows" aria-live="polite"><span class="muted">Awaiting forward-trial evidence.</span></div>
  <div class="headingrow" style="margin-top:20px"><h2>Were higher long scores more accurate?</h2></div>
@@ -628,6 +631,19 @@ load();
     put("evidence-unique",report.unique_signal_timestamps??0);
     put("evidence-decisions",report.observed_candles??0);
     put("evidence-labelled",report.forecast_windows_calibrated??0);
+    const chance=report.chance_control;
+    const rawCalibration=report.separate_model_score_calibration;
+    if(chance){
+      const eligible=(chance.cohorts||[]).filter(x=>x.status==="QUALIFIES_FOR_SEPARATE_PRECOMMITTED_FORWARD_HOLDOUT");
+      const settle=chance.total_settled_trials||0;
+      put("evidence-unique",chance.distinct_settled_setups??0);
+      put("research-multiple-test-caution",
+        settle+" settled trades share only "+(chance.distinct_settled_setups||0)+
+        " different entry setups over "+(chance.distinct_days_settled||0)+
+        " trading days. Twelve strategies are tested simultaneously. "+
+        "A win-rate interval is corrected for 12 comparisons, and average profitability must be positive across day-cluster resamples. "+
+        (eligible.length?"A candidate needs a NEW independent forward holdout; no auto-promotion.":"No edge has been validated."));
+    }
     const passed=report.strict_gate_observations||{};
     put("research-evidence-note",
       "Historical model thresholds have not been relaxed. "+
@@ -652,16 +668,16 @@ load();
         const n=c?.completed||0;
         const days=c?.independent_days||0;
         details.textContent=n+" settled · "+days+" days · "+
-          (n<100?"Need more evidence":c?.evidence||"Unverified");
+          (c?.evidence||"Insufficient independent evidence");
         lhs.append(title,details);
         const rhs=document.createElement("div");rhs.className="evidence-right";
         const rate=document.createElement("strong");
         rate.textContent=typeof c?.win_rate==="number"
           ?(c.win_rate*100).toFixed(0)+"% won":"No results";
         const ci=document.createElement("small");
-        const band=c?.win_rate_wilson95;
+        const band=c?.simultaneous_wilson95;
         ci.textContent=band&&band[0]!=null
-          ?"95% CI "+(band[0]*100).toFixed(0)+"–"+(band[1]*100).toFixed(0)+"%"
+          ?"12-way-adjusted interval "+(band[0]*100).toFixed(0)+"–"+(band[1]*100).toFixed(0)+"%"
           :"Confidence unavailable";
         const net=document.createElement("small");
         net.textContent=typeof c?.mean_net_r==="number"
@@ -672,6 +688,17 @@ load();
     }
     const calibration=document.getElementById("score-calibration");
     calibration.replaceChildren();
+    if(rawCalibration){
+      const separate=rawCalibration.models||[];
+      const n=separate.reduce((sum,m)=>sum+Number(m.spaced_observations||0),0);
+      const warning=document.createElement("div");
+      warning.className="info";
+      warning.textContent="Original model predictions: "+n+
+        " later-evaluated, 30-minute-spaced observations across model versions. "+
+        "Those scores predict a different SPOT-cost trade from the new paper experiments. "+
+        "Low scores are not overwritten by winning experimental trades. ";
+      calibration.append(warning);
+    }
     const bins=Object.entries(report.score_calibration_30m||{});
     if(!bins.length){
       calibration.textContent="No independent 30-minute forecast comparisons have matured.";
