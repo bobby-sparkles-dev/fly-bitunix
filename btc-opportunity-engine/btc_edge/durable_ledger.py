@@ -57,6 +57,8 @@ def connect_pg():
 def setup(cur) -> None:
     cur.execute(FORECAST_TABLE)
     cur.execute(PAPER_TABLE)
+    from .shadow_paper import pg_install
+    pg_install(cur)
 
 
 def sync_from_sqlite(db: sqlite3.Connection) -> dict:
@@ -103,9 +105,11 @@ def sync_from_sqlite(db: sqlite3.Connection) -> dict:
                     WHERE btc_paper_trades_v1.payload IS DISTINCT FROM EXCLUDED.payload
                 """, [(PROVIDER, int(row[1]),
                        Jsonb(dict(zip(PCOLS, row)))) for row in trades])
+            from .shadow_paper import pg_sync
+            shadow_count=pg_sync(db,cur)
         conn.commit()
     return {"enabled": True, "forecasts": len(recent),
-            "paper_trades": len(trades)}
+            "paper_trades": len(trades),"shadow_trials":shadow_count}
 
 
 def restore_into_sqlite(db: sqlite3.Connection) -> dict:
@@ -128,6 +132,8 @@ def restore_into_sqlite(db: sqlite3.Connection) -> dict:
                 ORDER BY decision_open_ms
             """, (PROVIDER,))
             paper = [row[0] for row in cur.fetchall()]
+            from .shadow_paper import pg_fetch
+            shadow_payloads=pg_fetch(cur)
     for row in predictions:
         db.execute("""
             INSERT INTO live_forecasts (
@@ -153,5 +159,9 @@ def restore_into_sqlite(db: sqlite3.Connection) -> dict:
             ON CONFLICT(decision_open_ms) DO UPDATE SET
             """ + ",".join(f"{col}=excluded.{col}" for col in PCOLS
                         if col != "decision_open_ms"), row)
+    from .shadow_paper import install as install_shadow, sqlite_restore
+    install_shadow(db)
+    shadow_restored=sqlite_restore(db,shadow_payloads)
     db.commit()
-    return {"enabled": True, "forecasts": len(predictions), "paper_trades": len(paper)}
+    return {"enabled": True, "forecasts": len(predictions),
+            "paper_trades": len(paper), "shadow_trials":shadow_restored}
