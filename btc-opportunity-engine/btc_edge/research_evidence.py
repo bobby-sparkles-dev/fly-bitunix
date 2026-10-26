@@ -156,13 +156,16 @@ def score_buckets(db) -> dict:
     DIFFERENT spot long bracket event, whereas these score probes evaluate
     net 30-minute directional return from a next untouched candle.
     """
+    exists=db.execute("""
+        SELECT 1 FROM sqlite_master WHERE type='table' AND name='btc_score_probes'
+    """).fetchone()
     rows=db.execute("""
       SELECT model_id,candle_open_ms,p_long,net_return_pct,
              max_favorable_pct,max_adverse_pct
       FROM btc_score_probes
       WHERE status='COMPLETE' AND horizon_bars=6
       ORDER BY model_id,candle_open_ms
-    """).fetchall()
+    """).fetchall() if exists else []
     by_model=defaultdict(list)
     for model,t,prob,net,mfe,mae in rows:
         if net is not None:
