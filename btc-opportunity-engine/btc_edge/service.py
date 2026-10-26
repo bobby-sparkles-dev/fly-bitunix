@@ -431,6 +431,17 @@ class Handler(BaseHTTPRequestHandler):
                     json.dumps({"error": "Stored market data is not ready", "details": str(exc)[:180],
                                 "source": "backend_saved_completed_candles"}).encode(),
                     "application/json; charset=utf-8", 503)
+        if path == "/api/audit":
+            from .api_audit import recent_forecast_audit
+            try:
+                result = recent_forecast_audit(DB, hours=24)
+                return self.respond(json.dumps(result).encode(),
+                                    "application/json; charset=utf-8")
+            except (OSError, ValueError, sqlite3.DatabaseError) as exc:
+                LOG.warning("Forecast audit unavailable: %s", exc)
+                return self.respond(
+                    json.dumps({"error": "Stored forecast audit unavailable"}).encode(),
+                    "application/json; charset=utf-8", 503)
         if path == "/api/state":
             return self.respond(json.dumps(snapshot()).encode(), "application/json; charset=utf-8")
         if path == "/api/health":
