@@ -42,12 +42,12 @@ def clusters(timestamps:list[int], min_gap_ms:int=4*3_600_000)->int:
 def review(db:sqlite3.Connection)->dict:
     from .score_probes import summary as probe_summary
     from .shadow_paper import summary as trial_summary
-    from .research_decisions import SCHEMA_VERSION
+    SCHEMA_VERSION = 1
     shadow=trial_summary(db)
     probes=probe_summary(db)
     observed=db.execute("""
-       SELECT COUNT(*),MIN(logged_at),MAX(logged_at)
-       FROM btc_decision_context
+       SELECT COUNT(*),MIN(observed_at),MAX(observed_at)
+       FROM research_decisions_v1
     """).fetchone()
     full_signals=db.execute("""
        SELECT strategy_id,signal_open_ms
