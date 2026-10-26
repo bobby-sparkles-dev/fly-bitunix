@@ -241,6 +241,9 @@ def live_cycle() -> None:
     from .shadow_paper import (install as install_shadow,
         settle as settle_shadow, queue_new as queue_shadow,
         summary as shadow_summary)
+    from .research_log import install as install_research, record as log_decision
+    from .research_outcomes import mature as mature_research
+    from .research_report import report as evidence_report
 
     _live_busy.set()
     try:
@@ -251,6 +254,7 @@ def live_cycle() -> None:
             ensure_history(db)
             install_paper(db)
             install_shadow(db)
+            install_research(db)
             count = db.execute("SELECT COUNT(*) FROM candles WHERE symbol='BTCUSDT'").fetchone()[0]
             result = ingest(db, days=37 if count < 500 else 2,
                 on_progress=lambda p: stage("collecting", p["percent"] * .78,
