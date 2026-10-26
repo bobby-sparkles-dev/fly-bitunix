@@ -47,7 +47,7 @@ def test_pre_observation_candle_is_not_used_for_forward_outcome():
     assert settle_probe(db,bars,now_ms=observed)==0
     assert probe_summary(db)["probes"][0]["pending"]==1
     for i in range(56,62):
-        bars.loc[i*INTERVAL_MS]=[50000.,50100.,49950.,50000.]
+        bars.loc[i*INTERVAL_MS]=[50000.,50100.,49950.,50000.,100.,51.,300]
     assert settle_probe(db,bars,now_ms=62*INTERVAL_MS)>0
     test=db.execute("""
       SELECT entry_open_ms,net_return_pct,status FROM btc_score_probes
@@ -75,7 +75,7 @@ def test_immutable_snapshot_and_later_results_never_mutate_features():
     score["p_profitable_btc_long"]=.08
     record_probe(db,score,observed_ms=observed)
     for i in range(56,62):
-        bars.loc[i*INTERVAL_MS]=[50000.,50200.,49900.,50080.]
+        bars.loc[i*INTERVAL_MS]=[50000.,50200.,49900.,50080.,100.,51.,300]
     settle_probe(db,bars,now_ms=62*INTERVAL_MS)
     assert attach_matured_outcomes(db,now_ms=62*INTERVAL_MS)==1
     future=json.loads(db.execute("SELECT future_json FROM research_decisions_v1").fetchone()[0])
