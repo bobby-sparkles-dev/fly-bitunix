@@ -475,6 +475,8 @@ def persistence_worker() -> None:
         pending = _checkpoint_requested.wait(timeout=60)
         due = time.monotonic()-last_saved >= 900
         if pending and not due:
+            # Event.wait() returns immediately while set, so do not spin CPU.
+            time.sleep(min(60, max(1, 900-(time.monotonic()-last_saved))))
             continue
         if not pending and not due:
             continue
