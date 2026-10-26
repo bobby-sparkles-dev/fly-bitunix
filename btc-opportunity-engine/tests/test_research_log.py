@@ -8,6 +8,8 @@ from btc_edge.config import INTERVAL_MS
 from btc_edge.shadow_paper import install as shadow_install
 from btc_edge.research_log import install as log_install, record
 from btc_edge.research_outcomes import mature
+from btc_edge.score_probes import install as install_probes, record as record_probe
+from btc_edge.research_evidence import wilson as adjusted_wilson
 from btc_edge.research_report import report, wilson, recent_decisions
 
 
@@ -15,6 +17,12 @@ def setup():
     db=sqlite3.connect(":memory:")
     shadow_install(db)
     log_install(db)
+    install_probes(db)
+    db.execute("""CREATE TABLE live_forecasts (
+        candle_open_ms INTEGER PRIMARY KEY,
+        model_id TEXT, probability_long REAL,
+        outcome_win INTEGER,outcome_net_r REAL)""")
+    db.commit()
     return db
 
 def candles(end=54):
@@ -59,20 +67,21 @@ def test_outcomes_wait_for_all_later_completed_candles():
     btc,features=candles()
     t=int(btc.index.max())
     record(db,btc,features,score(t),[],t+INTERVAL_MS+30000)
+    record_probe(db,score(t),observed_ms=t+INTERVAL_MS+30000)
     assert mature(db,btc)==0
     # only 5 future bars: 30-minute label must remain missing.
-    more,_=candles(59)
+    more,_=candles(60)
     assert mature(db,more)==0
-    all_bars,_=candles(60)
-    all_bars.loc[60*INTERVAL_MS,"close"]=50500.
+    all_bars,_=candles(61)
+    all_bars.loc[61*INTERVAL_MS,"close"]=50500.
     assert mature(db,all_bars)==1
     row=recent_decisions(db)["decisions"][0]
     results=row["outcomes_observed_later"]
-    assert "30" in results
-    assert "60" not in results
-    assert results["30"]["entry_open_ms"]>t
-    assert results["30"]["market_tradeable"] in (True,False)
-    assert results["30"]["strict_win"] in (True,False)
+    assert "30m" in results
+    assert "1h" not in results
+    assert results["30m"]["simulated_entry_open_ms"]>t
+    assert results["30m"]["status"]=="COMPLETE"
+    assert results["30m"]["net_return_pct"] is not None
     assert mature(db,all_bars)==0
 
 def test_missing_future_bar_cannot_be_called_a_win():
@@ -80,10 +89,13 @@ def test_missing_future_bar_cannot_be_called_a_win():
     btc,features=candles()
     t=int(btc.index.max())
     record(db,btc,features,score(t),[],t+INTERVAL_MS+20000)
-    extended,_=candles(60)
-    extended=extended.drop(57*INTERVAL_MS)
-    assert mature(db,extended)==0
-    assert recent_decisions(db)["decisions"][0]["outcomes_observed_later"]=={}
+    record_probe(db,score(t),observed_ms=t+INTERVAL_MS+20000)
+    extended,_=candles(61)
+    extended=extended.drop(58*INTERVAL_MS)
+    assert mature(db,extended)==1
+    outcome=recent_decisions(db)["decisions"][0]["outcomes_observed_later"]["30m"]
+    assert outcome["status"]=="INVALID_DATA"
+    assert outcome["net_return_pct"] is None
 
 def test_correlated_holding_periods_are_one_unique_entry():
     db=setup()
@@ -102,7 +114,7 @@ def test_correlated_holding_periods_are_one_unique_entry():
     assert result["experimental_rows_not_independent"]==4
     assert result["unique_signal_timestamps"]==1
     assert result["separate_four_hour_blocks"]==1
-    assert all(x["evidence"]=="NOT_ENOUGH_EVIDENCE" for x in result["cohorts"])
+    assert all(x["evidence"]=="INSUFFICIENT_INDEPENDENT_EVIDENCE" for x in result["cohorts"])
     assert all(x["win_rate_wilson95"][0] < .55 for x in result["cohorts"])
 
 def test_zero_forecasts_never_validate_random_wins():
@@ -111,4 +123,4 @@ def test_zero_forecasts_never_validate_random_wins():
     assert result["status"]=="RESEARCH_NOT_VALIDATED"
     assert result["observed_candles"]==0
     assert result["no_live_execution"] is True
-    assert wilson(10,10)[0]<.55
+    assert adjusted_wilson(10,10)[0]<.55
