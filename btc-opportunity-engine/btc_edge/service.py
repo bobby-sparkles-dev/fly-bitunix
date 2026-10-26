@@ -612,6 +612,17 @@ class Handler(BaseHTTPRequestHandler):
                 LOG.exception("Research summary API unavailable")
                 return self.respond(b'{"error":"Analysis unavailable"}',
                                     "application/json; charset=utf-8",503)
+        if path == "/api/research/decisions":
+            try:
+                from .research_report import recent_decisions
+                with connect(DB) as db:
+                    result=recent_decisions(db,limit=96)
+                return self.respond(json.dumps(result).encode(),
+                                    "application/json; charset=utf-8")
+            except Exception:
+                LOG.exception("Research forensic log unavailable")
+                return self.respond(b'{"error":"Decision log unavailable"}',
+                                    "application/json; charset=utf-8",503)
         if path == "/api/state":
             return self.respond(json.dumps(snapshot()).encode(), "application/json; charset=utf-8")
         if path == "/api/health":
