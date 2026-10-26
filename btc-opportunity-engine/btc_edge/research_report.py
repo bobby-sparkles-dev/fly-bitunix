@@ -9,6 +9,7 @@ import math
 import random
 from collections import Counter, defaultdict
 from datetime import datetime,timezone
+from .research_evidence import cohort_evidence, score_buckets
 
 def wilson(wins, n, z=1.96):
     if n<1:
@@ -47,6 +48,9 @@ def report(db):
         groups[(strategy,int(horizon))].append({
             "signal":int(signal),"observed_at":observed,
             "status":status,"net_r":net,"exit_ms":exit_ms})
+    corrected = cohort_evidence(db)
+    adjusted = {(item["strategy_id"],item["horizon_minutes"]):item
+                for item in corrected["cohorts"]}
     result=[]
     for (strategy,horizon),trials in sorted(groups.items()):
         done=[t for t in trials if t["status"] in ("WIN","LOSS") and t["net_r"] is not None]
@@ -56,9 +60,9 @@ def report(db):
         days=len({t["observed_at"][:10] for t in done})
         ci=wilson(wins,n)
         expected_ci=daily_block_ci(done)
-        passes=(n>=100 and days>=20 and ci[0] is not None
-                and ci[0]>=0.55 and expected_ci is not None
-                and expected_ci[0]>0)
+        evidence = adjusted[(strategy,horizon*5)]
+        # The 12 simultaneous experiments demand multiplicity correction and
+        # day-block robustness. Early wins cannot pass the model gate.
         result.append({
             "strategy_id":strategy,"horizon_minutes":horizon*5,
             "entry_opportunities":len({t["signal"] for t in trials}),
@@ -70,10 +74,13 @@ def report(db):
             "mean_net_r":round(expectancy,4) if expectancy is not None else None,
             "mean_net_r_day_bootstrap95":expected_ci,
             "independent_days":days,
-            "evidence":"PROMISING_REQUIRES_REPLICATION" if passes else
-                "NOT_ENOUGH_EVIDENCE" if n<100 or days<20 else
-                "NO_DEMONSTRATED_EDGE",
-            "notes":"No automatic strategy promotion. Day-block CI is exploratory; correlated entries and testing multiple strategies reduce effective sample size."
+            "evidence":evidence["status"],
+            "simultaneous_wilson95":[evidence["adjusted_wilson_lower"],
+                                     evidence["adjusted_wilson_upper"]],
+            "day_bootstrap_lower_net_r":evidence["day_bootstrap_lower_mean_r"],
+            "same_horizon_reference_average_net_r":
+                evidence["reference_same_horizon_avg_r"],
+            "notes":"No automatic promotion. Multiple comparisons corrected across 12 variants; day-cluster bootstrap only after 8 different days. A later independent holdout is mandatory."
         })
     unique_signals={r[2] for r in rows}
     windows={int(t//(48*300000)) for t in unique_signals}
@@ -119,8 +126,10 @@ def report(db):
         "separate_four_hour_blocks":len(windows),
         "experimental_rows_not_independent":len(rows),
         "cohorts":result,
+        "chance_control":corrected,
+        "separate_model_score_calibration":score_buckets(db),
         "score_calibration_30m":dict(sorted(score_groups.items())),
-        "next_step":"Accumulate at least 100 distinct entries per cohort, 20 separate UTC days and a positive cost-adjusted result with uncertainty. Then validate on later untouched observations and compare with an identical-horizon control.",
+        "next_step":"Treat the first results as setup tests, not evidence of an edge. Before recommending even another research candidate, require at least 200 non-overlapping settled trades in the same cohort across 20+ UTC days, a 12-way-adjusted win-rate lower bound above 55%, positive day-bootstrap net returns, and better results than its same-horizon reference. Then run a separately committed forward holdout.",
         "important":"Winning first trades do not alter trained model scores. No hyperparameter or threshold is adjusted from these same outcomes.",
     }
 
