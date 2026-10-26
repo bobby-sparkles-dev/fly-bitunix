@@ -320,7 +320,7 @@ def live_cycle() -> None:
             persistence_ok = False
             try:
                 from .durable_ledger import sync_from_sqlite
-                sync = sync_from_sqlite(db)
+                sync = sync_from_sqlite(db, MODEL_DIR)
                 persistence_ok = bool(sync.get("enabled"))
                 save_state(forecast_ledger_synced_at=timestamp(),
                            forecast_ledger_error=None)
@@ -341,6 +341,8 @@ def live_cycle() -> None:
                        message=message, updated_at=timestamp(), last_error=None,
                        score=score, forward_observations=forward, paper_trades=ledger,
                        shadow_trials=shadow,
+                       research_evidence=evidence,
+                       research_log_working=research_working,
                        shadow_mode="FORWARD_PAPER_EXPERIMENTS_ONLY",
                        decision_diagnostics=decisions, data_venue=PROVIDER,
                        last_training_at=model.get("trained_at"),
