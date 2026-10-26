@@ -167,18 +167,18 @@ def mature(db: sqlite3.Connection, btc, now_ms: int | None = None,
     if btc.empty:
         return 0
     last_ms=int(btc.index.max())
-    cutoff=last_ms - max(HORIZONS)*INTERVAL_MS
+    cutoff=last_ms - 3*86_400_000
     rows=db.execute("""
         SELECT decision_open_ms,context_json,future_json FROM decision_journal
         WHERE decision_open_ms >= ? AND decision_open_ms <= ?
-        ORDER BY decision_open_ms DESC LIMIT ?
-    """,(cutoff-48*INTERVAL_MS,last_ms,limit)).fetchall()
+          AND future_json NOT LIKE '%"4h"%'
+        ORDER BY decision_open_ms ASC LIMIT ?
+    """,(cutoff,last_ms,limit)).fetchall()
     changed=0
     for timestamp, raw_context, raw_future in rows:
         timestamp=int(timestamp)
         if timestamp not in btc.index:
             continue
-        context=json.loads(raw_context)
         result=json.loads(raw_future or "{}")
         entry_bar=btc.loc[timestamp]
         reference=float(entry_bar["close"])
@@ -237,11 +237,20 @@ def pg_install(cur):
 
 def pg_sync(db: sqlite3.Connection,cur):
     from psycopg.types.json import Jsonb
+    # Avoid shipping the whole feature history every 5 minutes. Include
+    # newly observed rows plus recent ones whose future outcomes may mature.
+    cur.execute("SELECT MAX(decision_open_ms) FROM btc_decision_journal_v1 WHERE venue=%s",
+                (PROVIDER,))
+    row=cur.fetchone()
+    newest_saved=int(row[0]) if row and row[0] is not None else -1
+    cutoff=int(time.time()*1000)-7*3_600_000
     rows=db.execute("""
        SELECT decision_open_ms,observed_at,model_id,p_market,p_long,
               score_status,context_json,decisions_json,future_json
-       FROM decision_journal ORDER BY decision_open_ms DESC LIMIT 1100
-    """).fetchall()
+       FROM decision_journal
+       WHERE decision_open_ms > ? OR decision_open_ms >= ?
+       ORDER BY decision_open_ms DESC LIMIT 140
+    """,(newest_saved,cutoff)).fetchall()
     if not rows:
         return 0
     cur.executemany("""
