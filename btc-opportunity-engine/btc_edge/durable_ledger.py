@@ -59,9 +59,11 @@ def setup(cur) -> None:
     cur.execute(PAPER_TABLE)
     from .shadow_paper import pg_install
     pg_install(cur)
+    from .research_store import pg_setup
+    pg_setup(cur)
 
 
-def sync_from_sqlite(db: sqlite3.Connection) -> dict:
+def sync_from_sqlite(db: sqlite3.Connection, model_dir=None) -> dict:
     """Idempotent, immutable predictions with later outcome-only updates."""
     if not enabled():
         return {"enabled": False}
@@ -107,9 +109,13 @@ def sync_from_sqlite(db: sqlite3.Connection) -> dict:
                        Jsonb(dict(zip(PCOLS, row)))) for row in trades])
             from .shadow_paper import pg_sync
             shadow_count=pg_sync(db,cur)
+            from .research_store import pg_sync as sync_research
+            research_sync = (sync_research(db,cur,model_dir) if model_dir is not None
+                             else {"decision_snapshots":0,"model_saved":False})
         conn.commit()
     return {"enabled": True, "forecasts": len(recent),
-            "paper_trades": len(trades),"shadow_trials":shadow_count}
+            "paper_trades": len(trades),"shadow_trials":shadow_count,
+            "research":research_sync}
 
 
 def restore_into_sqlite(db: sqlite3.Connection) -> dict:
@@ -134,6 +140,8 @@ def restore_into_sqlite(db: sqlite3.Connection) -> dict:
             paper = [row[0] for row in cur.fetchall()]
             from .shadow_paper import pg_fetch
             shadow_payloads=pg_fetch(cur)
+            from .research_store import restore_recent
+            restored_research = restore_recent(db,cur)
     for row in predictions:
         db.execute("""
             INSERT INTO live_forecasts (
@@ -164,4 +172,5 @@ def restore_into_sqlite(db: sqlite3.Connection) -> dict:
     shadow_restored=sqlite_restore(db,shadow_payloads)
     db.commit()
     return {"enabled": True, "forecasts": len(predictions),
-            "paper_trades": len(paper), "shadow_trials":shadow_restored}
+            "paper_trades": len(paper), "shadow_trials":shadow_restored,
+            "research_decisions":restored_research}
