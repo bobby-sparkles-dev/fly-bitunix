@@ -517,6 +517,33 @@ def main() -> None:
                 LOG.info("Restored recent trained model; skipped unnecessary restart retraining")
         except (OSError, ValueError, TypeError, KeyError):
             LOG.warning("Saved model metadata could not be used to restore training clock")
+    # One-time forensic summary, derived solely from saved historical forecasts.
+    # A wick can occur before its candle closes, so distinguish actual forecast
+    # observation timestamps from the price-candle timestamps.
+    try:
+        from .api_audit import recent_forecast_audit
+        audit = recent_forecast_audit(DB, hours=24)
+        low = audit.get("min_low")
+        if low:
+            LOG.info("OVERNIGHT AUDIT low=%.2f candle_utc=%s recorded_forecasts=%s candles=%s",
+                     float(low["price"]), low["candle_utc"],
+                     audit["logged_forecasts_count"], audit["candles_count"])
+            near = audit.get("forecasts_near_low", [])
+            for entry in near:
+                t = datetime.fromtimestamp(int(entry["candle_open_ms"])/1000,timezone.utc).isoformat()
+                LOG.info("OVERNIGHT FORECAST candle_utc=%s observed_at=%s market=%.4f long=%.4f status=%s qualified=%s",
+                         t, entry["observed_at"],float(entry["probability_market"]),
+                         float(entry["probability_long"]),entry["research_status"],
+                         entry["candidate"])
+            before=audit.get("last_logged_forecast_at_or_before_low")
+            after=audit.get("first_logged_forecast_after_low")
+            for label,entry in (("PRIOR",before),("NEXT",after)):
+                if entry:
+                    LOG.info("OVERNIGHT %s observed_at=%s market=%.4f long=%.4f candle_ms=%s",
+                             label,entry["observed_at"],entry["probability_market"],
+                             entry["probability_long"],entry["candle_open_ms"])
+    except Exception:
+        LOG.exception("OVERNIGHT AUDIT FAILED; research service will still start")
     threading.Thread(target=heartbeat, name="heartbeat", daemon=True).start()
     threading.Thread(target=worker, name="research-worker", daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
