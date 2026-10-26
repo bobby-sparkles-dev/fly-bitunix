@@ -18,7 +18,10 @@ def mature(db, btc, now_ms=None):
     remain labelled legacy and are not rewritten or silently mixed with new
     executable-after-observation results.
     """
-    from .score_probes import settle as settle_score_probes
+    from .score_probes import install as install_score_probes, settle as settle_score_probes
     from .research_log import attach_matured_outcomes
+    # Some callers build a lightweight research-only database. Initialise
+    # the forward probe table before looking for pending outcomes.
+    install_score_probes(db)
     settle_score_probes(db,btc,now_ms=now_ms)
     return attach_matured_outcomes(db,now_ms=now_ms)
