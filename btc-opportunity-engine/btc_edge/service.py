@@ -602,6 +602,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(
                     json.dumps({"error": "Stored forecast audit unavailable"}).encode(),
                     "application/json; charset=utf-8", 503)
+        if path == "/api/research":
+            try:
+                from .research_report import report
+                with connect(DB) as db:
+                    return self.respond(json.dumps(report(db)).encode(),
+                                        "application/json; charset=utf-8")
+            except Exception:
+                LOG.exception("Research summary API unavailable")
+                return self.respond(b'{"error":"Analysis unavailable"}',
+                                    "application/json; charset=utf-8",503)
         if path == "/api/state":
             return self.respond(json.dumps(snapshot()).encode(), "application/json; charset=utf-8")
         if path == "/api/health":
