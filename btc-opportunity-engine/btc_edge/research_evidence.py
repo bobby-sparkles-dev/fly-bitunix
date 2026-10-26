@@ -155,13 +155,17 @@ def score_buckets(db) -> dict:
     Do not mix model versions when claiming score calibration; keep each
     trained model identified, and subsample to nonoverlapping 30m decisions.
     """
+    exists=db.execute("""
+        SELECT 1 FROM sqlite_master WHERE type='table'
+          AND name='live_forecasts'
+    """).fetchone()
     rows=db.execute("""
       SELECT model_id,candle_open_ms,probability_long,
              outcome_win,outcome_net_r
       FROM live_forecasts
       WHERE outcome_win IS NOT NULL
       ORDER BY model_id,candle_open_ms
-    """).fetchall()
+    """).fetchall() if exists else []
     by_model=defaultdict(list)
     for model,t,prob,win,net in rows:
         by_model[model].append((int(t),float(prob),int(win),float(net)))
