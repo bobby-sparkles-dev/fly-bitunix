@@ -617,6 +617,76 @@ load();
     const cost=sh.research_costs||{};
     put("shadow-recent-note","Assumed round-trip costs: "+(cost.round_trip_bps_approx??"—")+" bps");
   }
+  function showEvidence(state){
+    const report=state.research_evidence;
+    const put=(id,value)=>{const node=document.getElementById(id);if(node)node.textContent=value;};
+    if(!report){
+      put("research-evidence-note","Research comparison not available yet. The strict model is unchanged.");
+      return;
+    }
+    put("evidence-validation","NOT VALIDATED");
+    put("evidence-unique",report.unique_signal_timestamps??0);
+    put("evidence-decisions",report.observed_candles??0);
+    put("evidence-labelled",report.forecast_windows_calibrated??0);
+    const passed=report.strict_gate_observations||{};
+    put("research-evidence-note",
+      "Historical model thresholds have not been relaxed. "+
+      (passed.both||0)+" of "+(report.observed_candles||0)+
+      " logged decisions cleared both strict cutoffs. "+
+      (report.experimental_rows_not_independent||0)+
+      " experimental positions came from "+(report.unique_signal_timestamps||0)+
+      " unique entry times, spanning "+(report.separate_four_hour_blocks||0)+
+      " separate four-hour blocks. Paper results are for evaluating ideas, not automatically changing scores.");
+    const container=document.getElementById("evidence-analysis-rows");
+    container.replaceChildren();
+    const map={hourly_reference:"Reference",dip_rebound:"Dip rebound",momentum_breakout:"Breakout"};
+    const cohorts=report.cohorts||[];
+    for(const strategy of ["hourly_reference","dip_rebound","momentum_breakout"]){
+      for(const horizon of [30,60,120,240]){
+        const c=cohorts.find(x=>x.strategy_id===strategy&&x.horizon_minutes===horizon);
+        const row=document.createElement("div");row.className="evidence-row";
+        const lhs=document.createElement("div");
+        const title=document.createElement("strong");
+        title.textContent=map[strategy]+" · "+(horizon<60?horizon+"m":horizon/60+"h");
+        const details=document.createElement("small");
+        const n=c?.completed||0;
+        const days=c?.independent_days||0;
+        details.textContent=n+" settled · "+days+" days · "+
+          (n<100?"Need more evidence":c?.evidence||"Unverified");
+        lhs.append(title,details);
+        const rhs=document.createElement("div");rhs.className="evidence-right";
+        const rate=document.createElement("strong");
+        rate.textContent=typeof c?.win_rate==="number"
+          ?(c.win_rate*100).toFixed(0)+"% won":"No results";
+        const ci=document.createElement("small");
+        const band=c?.win_rate_wilson95;
+        ci.textContent=band&&band[0]!=null
+          ?"95% CI "+(band[0]*100).toFixed(0)+"–"+(band[1]*100).toFixed(0)+"%"
+          :"Confidence unavailable";
+        const net=document.createElement("small");
+        net.textContent=typeof c?.mean_net_r==="number"
+          ?"Avg "+(c.mean_net_r>=0?"+":"")+c.mean_net_r.toFixed(2)+" R net"
+          :"No net-return estimate";
+        rhs.append(rate,ci,net);row.append(lhs,rhs);container.append(row);
+      }
+    }
+    const calibration=document.getElementById("score-calibration");
+    calibration.replaceChildren();
+    const bins=Object.entries(report.score_calibration_30m||{});
+    if(!bins.length){
+      calibration.textContent="No independent 30-minute forecast comparisons have matured.";
+    } else {
+      for(const [range,v] of bins){
+        const chip=document.createElement("div");chip.className="calibration-chip";
+        const name=document.createElement("strong");name.textContent="Score "+range;
+        const label=document.createElement("span");
+        label.textContent=(v.n||0)+" separated intervals · "+
+          (v.n?Math.round(100*(v.winners||0)/v.n)+"% net-positive":"pending")+
+          (v.n<20?" · tiny sample":"");
+        chip.append(name,label);calibration.append(chip);
+      }
+    }
+  }
   let statusPending=false;
   async function tick(){
     if(statusPending)return;
@@ -758,6 +828,7 @@ load();
           " wins · mean "+(typeof bt.mean_net_r==="number"?bt.mean_net_r.toFixed(2)+" R":"—")+" after assumed costs. Past performance is not a forward result.")
          :"No historical evaluation available.");
       showShadow(state);
+      showEvidence(state);
       showPaper(state);
       const diag=state.decision_diagnostics;
       if(diag){
