@@ -245,6 +245,8 @@ def live_cycle() -> None:
     from .score_probes import install as install_probes, record as record_probe
     from .research_outcomes import mature as mature_research
     from .research_report import report as evidence_report
+    from .opportunity_radar import (install as install_radar, reading as radar_reading,
+        record as record_radar, settle as settle_radar, summary as radar_summary)
 
     _live_busy.set()
     try:
@@ -257,6 +259,7 @@ def live_cycle() -> None:
             install_shadow(db)
             install_research(db)
             install_probes(db)
+            install_radar(db)
             count = db.execute("SELECT COUNT(*) FROM candles WHERE symbol='BTCUSDT'").fetchone()[0]
             result = ingest(db, days=37 if count < 500 else 2,
                 on_progress=lambda p: stage("collecting", p["percent"] * .78,
@@ -297,6 +300,25 @@ def live_cycle() -> None:
             if changes:
                 LOG.info("SHADOW PAPER UPDATED positions=%s settled=%s",
                          changes, shadow["trials"]["completed"])
+            # PRIMARY PRODUCT: a market-wide human attention radar. It makes NO trade
+            # entry decision and is evaluated on future broad market opportunities.
+            observed_ms = int(time.time() * 1000)
+            radar = radar_reading(features, score, observed_ms=observed_ms)
+            radar_working = False
+            try:
+                recorded_radar = record_radar(db, radar, observed_ms=observed_ms)
+                radar_matured = settle_radar(db, candles, now_ms=observed_ms)
+                radar_evidence = radar_summary(db)
+                radar_working = True
+                if recorded_radar:
+                    LOG.info("RADAR OBSERVED state=%s index=%s candle=%s",
+                             radar["state"], radar["opportunity_index"],
+                             radar["candle_open_ms"])
+            except Exception as exc:
+                LOG.exception("RADAR RECORDING FAILED")
+                radar_evidence = None
+                radar = {**radar, "state":"DATA_UNAVAILABLE",
+                         "reasons":["Radar evidence recording unavailable: " + str(exc)[:100]]}
             ledger = paper_summary(db)
             decisions = decision_diagnostics(db, score, ledger)
             forward = evaluate_matured(db, candles, features)
@@ -349,6 +371,8 @@ def live_cycle() -> None:
                               else "RUNNING" if persistence_ok else "PERSISTENCE_DEGRADED"),
                        message=message, updated_at=timestamp(), last_error=None,
                        score=score, forward_observations=forward, paper_trades=ledger,
+                       opportunity_radar=radar, opportunity_evidence=radar_evidence,
+                       opportunity_ledger_working=radar_working,
                        shadow_trials=shadow,
                        research_evidence=evidence,
                        research_log_working=research_working,
@@ -611,6 +635,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(
                     json.dumps({"error": "Stored forecast audit unavailable"}).encode(),
                     "application/json; charset=utf-8", 503)
+        if path == "/api/opportunity":
+            try:
+                from .opportunity_radar import install as radar_install, summary as radar_summary
+                with connect(DB) as db:
+                    radar_install(db)
+                    evidence = radar_summary(db)
+                return self.respond(json.dumps({
+                    "current": snapshot().get("opportunity_radar"),
+                    "evidence": evidence,
+                    "warning": "For manual market review only; research labels unvalidated",
+                }).encode(), "application/json; charset=utf-8")
+            except Exception:
+                LOG.exception("Market opportunity endpoint unavailable")
+                return self.respond(b'{"error":"Opportunity radar unavailable"}',
+                                    "application/json; charset=utf-8", 503)
         if path == "/api/research":
             try:
                 from .research_report import report
@@ -658,6 +697,7 @@ class Handler(BaseHTTPRequestHandler):
                 "worker_alive": worker_age is not None and worker_age < 90,
                 "score_age_minutes": score_age_min,
                 "last_completed_cycle_at": state.get("updated_at"),
+                "radar_ledger_working": state.get("opportunity_ledger_working"),
                 "archive_state": state.get("archive_state"),
                 "durable_archive_checkpoint_at": state.get("archive_persisted_at"),
             }
