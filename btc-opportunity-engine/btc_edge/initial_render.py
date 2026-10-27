@@ -128,6 +128,16 @@ def render_initial(template: str, state: dict, market: dict | None = None,
         values["data-quality"] = "Saved data unavailable"
         values["feed-status"] = "BACKEND DATA UNAVAILABLE"
 
+    radar = state.get("opportunity_radar")
+    if isinstance(radar, dict):
+        names = {"STAY_OUT":"STAY OUT","START_WATCHING":"START WATCHING",
+                 "LOOK_FOR_LONGS":"LOOK FOR LONGS","DATA_UNAVAILABLE":"DATA UNAVAILABLE"}
+        values["radar-status"] = names.get(radar.get("state"), "WAITING FOR DATA")
+        index = radar.get("opportunity_index")
+        values["radar-index"] = str(index) + "/100" if isinstance(index, int) else "—"
+        why = radar.get("reasons") or []
+        values["radar-reason"] = "; ".join(why[:3]) if why else "Awaiting indicators"
+        values["radar-observed"] = "Last observed " + _label_time(radar.get("observed_at"))
     score = state.get("score")
     if isinstance(score, dict):
         at = score.get("timestamp_open_ms")
