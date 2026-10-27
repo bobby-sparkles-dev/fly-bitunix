@@ -231,6 +231,23 @@ a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; 
 .calibration-chip{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#eef8f5;font-size:12px}
 .calibration-chip strong{display:block}
 @media(max-width:490px){.evidence-row{gap:7px}.evidence-right{min-width:92px}}
+
+.radar-panel{border:2px solid #a8d9c7;background:linear-gradient(130deg,#f2fcf7,#fffefb);margin-bottom:16px}
+.radar-status{font-size:clamp(24px,4vw,38px);line-height:1.1;letter-spacing:-.055em;font-weight:850;margin:8px 0}
+.radar-status[data-state="LOOK_FOR_LONGS"]{color:#116048}
+.radar-status[data-state="START_WATCHING"]{color:#99601d}
+.radar-status[data-state="STAY_OUT"]{color:#5a6372}
+.radar-status[data-state="DATA_UNAVAILABLE"]{color:#ae3c33}
+.radar-heading{display:flex;gap:18px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.radar-index{background:#eaf5ef;border:1px solid #cce7d5;border-radius:16px;padding:12px 18px;text-align:right;min-width:112px;font-size:30px;font-weight:800}
+.radar-index small{display:block;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.radar-reasons{padding:14px;background:white;border-radius:13px;margin:13px 0;font-size:13px;line-height:1.6;border:1px solid var(--line)}
+.radar-reasons span{display:block}
+.radar-evidence{display:flex;gap:8px;flex-wrap:wrap}
+.radar-evidence .calibration-chip{background:white}
+.radar-meta{font-size:12px;color:var(--muted)}
+.radar-subtle{font-size:12px;color:#596b60;line-height:1.6;margin-top:12px}
+@media(max-width:490px){.radar-index{font-size:24px;padding:9px 13px}.radar-heading{gap:8px}}
 </style>
 <script>
 window.addEventListener("error",function(e){
@@ -247,14 +264,28 @@ window.addEventListener("unhandledrejection",function(e){
 <main>
 <header><div class="brand"><span class="mark">₿</span> BTC SIGNAL LAB <small> / RESEARCH</small></div><div class="headright"><span class="pill"><span class="dot" id="dot"></span><span id="feed-status">CONNECTING TO MARKET DATA</span></span><span class="pill">NO LIVE TRADING</span></div></header>
 <h1>Trade less. <span style="color:var(--mint)">Know when to look.</span></h1>
-<p class="intro">We watch Bitcoin and ten other coins to identify when BTC long trades might work better. Here's what the engine is doing, what it predicts, and how its paper trades are actually performing.</p>
-<div class="callout" role="status"><strong>Research preview, not a trading signal.</strong> Green-light trading decisions are deliberately disabled until we have real forward-test evidence. Historical win rate: not measured.</div>
+<p class="intro">One question: are conditions becoming favourable enough to <strong>open the charts and look for long opportunities</strong>? BTC and ten altcoins inform the radar. No automatic entries or exits.</p>
+<div class="callout" role="status"><strong>Unvalidated research radar, not a buy signal.</strong> Its states invite human chart review only. Alerts are being measured prospectively against subsequent market conditions.</div>
 <div id="connection-status" class="info" role="status" style="margin:0 0 14px;background:#eaf9f0;border-color:#b8e4ca">
   Starting dashboard… The research database is stored separately and is not reset by closing this page.
 </div>
 <div id="saved-data-banner" class="info" role="status" style="margin:0 0 18px;background:#fff4e4;border-color:#e8cda6;font-size:13px">Connecting to the research service. Saved readings will appear here, including their age, even if the market feed is temporarily stale.</div>
+<section class="panel radar-panel" id="radar-panel" aria-label="Market long opportunity radar" aria-live="polite">
+ <div class="eyebrow">MARKET OPPORTUNITY RADAR · FOR HUMAN REVIEW</div>
+ <div class="radar-heading">
+  <div><h2>Is now worth looking for longs?</h2><div class="radar-status" id="radar-status" data-state="DATA_UNAVAILABLE">WAITING FOR DATA</div></div>
+  <div class="radar-index"><small>Opportunity index</small><span id="radar-index">—</span></div>
+ </div>
+ <p id="radar-guidance" style="font-size:15px;font-weight:650;margin:8px 0">Reading the latest completed market candles.</p>
+ <div class="radar-reasons"><strong>What is driving this reading?</strong><div id="radar-reasons"><span id="radar-reason">Waiting for indicators…</span></div></div>
+ <div class="radar-meta"><span id="radar-observed">Last observed: —</span> · <span id="radar-coverage">Altcoin coverage: —</span> · <strong id="radar-validation">NOT VALIDATED</strong></div>
+ <div class="headingrow" style="margin-top:16px"><h2>Did previous alerts precede better market conditions?</h2><small>Forward evidence</small></div>
+ <div id="radar-evidence" class="radar-evidence"><span class="muted">Waiting for enough future candles to measure results.</span></div>
+ <p class="radar-subtle">No entry price or automatic trades. Each reading is frozen when observed and checked later against BTC movement, altcoin breadth, persistence and downside over 30m, 1h, 2h and 4h. This rule-based v1 is experimental; results are not calibrated probabilities.</p>
+ <div class="radar-meta"><a href="/api/opportunity" target="_blank" rel="noopener">Inspect radar evidence</a> · <span id="radar-ledger">Evidence ledger initialising</span></div>
+</section>
 <section class="panel" style="margin-bottom:16px" aria-label="Research explained">
- <div class="headingrow"><h2>What is the engine doing?</h2><span class="pill" id="engine-plain-state">Starting</span></div>
+ <div class="headingrow"><h2>Secondary research: why does the old BTC trade model abstain?</h2><span class="pill" id="engine-plain-state">Starting</span></div>
  <div id="plain-message" style="font-size:16px;font-weight:650;margin-bottom:9px">Connecting to the research engine…</div>
  <div class="info" id="feature-coverage-note">Checking the latest BTC score and cross-market feature coverage…</div>
  <div class="muted" id="plain-detail">First it collects candles, then trains on recent history, then estimates the next 30 minutes. All entries are virtual.</div>
@@ -277,7 +308,7 @@ window.addEventListener("unhandledrejection",function(e){
 </section>
 <section class="panel" style="margin-bottom:16px" aria-label="Experimental BTC paper trades">
   <div class="headingrow">
-    <div><div class="eyebrow">NEW · PRE-REGISTERED RESEARCH</div><h2>Experimental paper trades</h2></div>
+    <div><div class="eyebrow">NEW · PRE-REGISTERED RESEARCH</div><h2>Secondary diagnostics: experimental paper trades</h2></div>
     <span class="pill">SIMULATED · NO MONEY</span>
   </div>
   <p class="muted" style="margin:0 0 12px">Unlike the strict model below, these trials test entry ideas without requiring two 62% scores. They only enter after a real completed candle is observed, and we record every result.</p>
@@ -537,6 +568,50 @@ load();
   function prettyTime(t){if(!t)return "—";const n=Date.parse(t);return Number.isFinite(n)?new Date(n).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"—";}
   function setVal(id,value){const n=document.getElementById(id);if(n)n.textContent=value;}
   function asPct(n){return typeof n==="number"&&Number.isFinite(n)?(n*100).toFixed(1)+"%":"—";}
+  function showRadar(s, fresh){
+    const r=s.opportunity_radar;
+    const states={
+      STAY_OUT:["STAY OUT","No convincing broad long opportunity at present. Focus elsewhere."],
+      START_WATCHING:["START WATCHING","Market participation is improving. Open charts selectively; await real setups."],
+      LOOK_FOR_LONGS:["LOOK FOR LONGS","Several market factors align. Inspect actual chart setups: this is not a buy signal."],
+      DATA_UNAVAILABLE:["DATA UNAVAILABLE","The latest observations cannot support a current reading."]
+    };
+    const age=Date.now()-Date.parse(r?.observed_at||"");
+    const current=Boolean(fresh&&r&&r.context_complete&&Number.isFinite(age)&&age>=0&&age<15*60000);
+    const state=current&&states[r?.state]?r.state:"DATA_UNAVAILABLE";
+    const item=states[state];
+    const node=document.getElementById("radar-status");
+    if(node){node.textContent=item[0];node.dataset.state=state;}
+    setVal("radar-guidance",item[1]);
+    setVal("radar-index",current&&Number.isInteger(r.opportunity_index)?r.opportunity_index+"/100":"—");
+    setVal("radar-observed",r?.observed_at?"Observed "+new Date(r.observed_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"})+" UTC":"No recent observation");
+    setVal("radar-coverage",r?"Altcoins with valid indicators: "+r.altcoins_covered+"/10":"Coverage pending");
+    setVal("radar-validation","RESEARCH ONLY · UNVALIDATED");
+    setVal("radar-ledger",s.opportunity_ledger_working?"Point-in-time records active":"Ledger not yet confirmed");
+    const lines=document.getElementById("radar-reasons");
+    if(lines){
+      lines.replaceChildren();
+      for(const reason of (current?r?.reasons:["Reading missing, old or incomplete; no current alert"]).slice(0,9)){
+        const div=document.createElement("span");
+        div.textContent=reason;lines.append(div);
+      }
+    }
+    const evidence=document.getElementById("radar-evidence");
+    if(!evidence)return;
+    evidence.replaceChildren();
+    const sample=(s.opportunity_evidence?.comparison||[]).filter(x=>x.horizon_minutes===60);
+    const labels={STAY_OUT:"Stay out",START_WATCHING:"Watching",LOOK_FOR_LONGS:"Look for longs"};
+    for(const stateName of ["STAY_OUT","START_WATCHING","LOOK_FOR_LONGS"]){
+      const x=sample.find(x=>x.state===stateName);
+      const cell=document.createElement("div");cell.className="calibration-chip";
+      const name=document.createElement("strong");name.textContent=labels[stateName];
+      const detail=document.createElement("span");
+      const n=Number(x?.spaced_observations||0);
+      detail.textContent=n?x.favourable_windows+"/"+n+" favourable 1h windows · "+
+          x.distinct_days+" days · unvalidated":"No settled spaced 1h windows";
+      cell.append(name,detail);evidence.append(cell);
+    }
+  }
   function showPaper(s){
     const p=s.paper_trades||{};
     const closed=p.completed||0,win=p.wins||0,loss=p.losses||0;
@@ -855,6 +930,7 @@ load();
          (bt.trades+" selected historical trades · "+(typeof bt.win_rate==="number"?asPct(bt.win_rate):"no win rate")+
           " wins · mean "+(typeof bt.mean_net_r==="number"?bt.mean_net_r.toFixed(2)+" R":"—")+" after assumed costs. Past performance is not a forward result.")
          :"No historical evaluation available.");
+      showRadar(state,scoreFresh);
       showShadow(state);
       showEvidence(state);
       showPaper(state);
@@ -911,10 +987,7 @@ load();
       if(callout){
         const f=state.forward_observations;
         callout.textContent=state.phase==="RUNNING" && scoreFresh
-         ?"Paper research active. Market tradeability estimate: "+Math.round(100*score.p_tradeable)+"%"+
-          "; long bracket outcome estimate: "+Math.round(100*score.p_profitable_btc_long)+"%"+
-          ". "+(f?"Forward observations evaluated: "+f.evaluated+"; qualified candidates evaluated: "+f.candidates_evaluated+". ":"")+
-          "These are uncalibrated experimental model outputs, NOT trade approvals or verified win rates."
+         ?"Market-opportunity radar is experimental. Its states suggest when to investigate manual long setups, not when to buy. The older BTC trade-profit model and shadow trading are secondary diagnostics; none authorise trades."
          :"Current BTC model scores withheld: "+(score?"last scored candle "+(signalAgeMinutes??"?")+" minutes old. ":"")+
            (state.message||"Checking market data.")+" "+
            (state.last_error?"Error: "+state.last_error:"")+" Real trading is disabled.";

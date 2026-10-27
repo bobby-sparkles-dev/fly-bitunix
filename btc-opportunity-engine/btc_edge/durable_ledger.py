@@ -63,6 +63,8 @@ def setup(cur) -> None:
     pg_setup(cur)
     from .score_probes import pg_install as install_score_probes
     install_score_probes(cur)
+    from .opportunity_radar import pg_install as install_radar
+    install_radar(cur)
 
 
 def sync_from_sqlite(db: sqlite3.Connection, model_dir=None) -> dict:
@@ -116,11 +118,14 @@ def sync_from_sqlite(db: sqlite3.Connection, model_dir=None) -> dict:
                              else {"decision_snapshots":0,"model_saved":False})
             from .score_probes import pg_sync as sync_score_probes
             probe_sync_count=sync_score_probes(db,cur)
+            from .opportunity_radar import pg_sync as sync_radar
+            radar_sync=sync_radar(db,cur)
         conn.commit()
     return {"enabled": True, "forecasts": len(recent),
             "paper_trades": len(trades),"shadow_trials":shadow_count,
             "research":research_sync,
-            "score_probes_synced":probe_sync_count}
+            "score_probes_synced":probe_sync_count,
+            "market_opportunity_radar":radar_sync}
 
 
 def restore_into_sqlite(db: sqlite3.Connection) -> dict:
@@ -149,6 +154,9 @@ def restore_into_sqlite(db: sqlite3.Connection) -> dict:
             restored_research = restore_recent(db,cur)
             from .score_probes import pg_restore
             restored_probes_payloads=pg_restore(cur)
+            from .opportunity_radar import install as install_radar, pg_restore as restore_radar
+            install_radar(db)
+            radar_restored = restore_radar(db,cur)
     for row in predictions:
         db.execute("""
             INSERT INTO live_forecasts (
@@ -184,4 +192,5 @@ def restore_into_sqlite(db: sqlite3.Connection) -> dict:
     return {"enabled": True, "forecasts": len(predictions),
             "paper_trades": len(paper), "shadow_trials":shadow_restored,
             "research_decisions":restored_research,
-            "score_probes":probes_restored}
+            "score_probes":probes_restored,
+            "market_opportunity_radar":radar_restored}
