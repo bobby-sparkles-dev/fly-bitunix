@@ -568,6 +568,50 @@ load();
   function prettyTime(t){if(!t)return "—";const n=Date.parse(t);return Number.isFinite(n)?new Date(n).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"—";}
   function setVal(id,value){const n=document.getElementById(id);if(n)n.textContent=value;}
   function asPct(n){return typeof n==="number"&&Number.isFinite(n)?(n*100).toFixed(1)+"%":"—";}
+  function showRadar(s, fresh){
+    const r=s.opportunity_radar;
+    const states={
+      STAY_OUT:["STAY OUT","No convincing broad long opportunity at present. Focus elsewhere."],
+      START_WATCHING:["START WATCHING","Market participation is improving. Open charts selectively; await real setups."],
+      LOOK_FOR_LONGS:["LOOK FOR LONGS","Several market factors align. Inspect actual chart setups: this is not a buy signal."],
+      DATA_UNAVAILABLE:["DATA UNAVAILABLE","The latest observations cannot support a current reading."]
+    };
+    const age=Date.now()-Date.parse(r?.observed_at||"");
+    const current=Boolean(fresh&&r&&r.context_complete&&Number.isFinite(age)&&age>=0&&age<15*60000);
+    const state=current&&states[r?.state]?r.state:"DATA_UNAVAILABLE";
+    const item=states[state];
+    const node=document.getElementById("radar-status");
+    if(node){node.textContent=item[0];node.dataset.state=state;}
+    setVal("radar-guidance",item[1]);
+    setVal("radar-index",current&&Number.isInteger(r.opportunity_index)?r.opportunity_index+"/100":"—");
+    setVal("radar-observed",r?.observed_at?"Observed "+new Date(r.observed_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"})+" UTC":"No recent observation");
+    setVal("radar-coverage",r?"Altcoins with valid indicators: "+r.altcoins_covered+"/10":"Coverage pending");
+    setVal("radar-validation","RESEARCH ONLY · UNVALIDATED");
+    setVal("radar-ledger",s.opportunity_ledger_working?"Point-in-time records active":"Ledger not yet confirmed");
+    const lines=document.getElementById("radar-reasons");
+    if(lines){
+      lines.replaceChildren();
+      for(const reason of (current?r?.reasons:["Reading missing, old or incomplete; no current alert"]).slice(0,9)){
+        const div=document.createElement("span");
+        div.textContent=reason;lines.append(div);
+      }
+    }
+    const evidence=document.getElementById("radar-evidence");
+    if(!evidence)return;
+    evidence.replaceChildren();
+    const sample=(s.opportunity_evidence?.comparison||[]).filter(x=>x.horizon_minutes===60);
+    const labels={STAY_OUT:"Stay out",START_WATCHING:"Watching",LOOK_FOR_LONGS:"Look for longs"};
+    for(const stateName of ["STAY_OUT","START_WATCHING","LOOK_FOR_LONGS"]){
+      const x=sample.find(x=>x.state===stateName);
+      const cell=document.createElement("div");cell.className="calibration-chip";
+      const name=document.createElement("strong");name.textContent=labels[stateName];
+      const detail=document.createElement("span");
+      const n=Number(x?.spaced_observations||0);
+      detail.textContent=n?x.favourable_windows+"/"+n+" favourable 1h windows · "+
+          x.distinct_days+" days · unvalidated":"No settled spaced 1h windows";
+      cell.append(name,detail);evidence.append(cell);
+    }
+  }
   function showPaper(s){
     const p=s.paper_trades||{};
     const closed=p.completed||0,win=p.wins||0,loss=p.losses||0;
@@ -886,6 +930,7 @@ load();
          (bt.trades+" selected historical trades · "+(typeof bt.win_rate==="number"?asPct(bt.win_rate):"no win rate")+
           " wins · mean "+(typeof bt.mean_net_r==="number"?bt.mean_net_r.toFixed(2)+" R":"—")+" after assumed costs. Past performance is not a forward result.")
          :"No historical evaluation available.");
+      showRadar(state,scoreFresh);
       showShadow(state);
       showEvidence(state);
       showPaper(state);
@@ -942,10 +987,7 @@ load();
       if(callout){
         const f=state.forward_observations;
         callout.textContent=state.phase==="RUNNING" && scoreFresh
-         ?"Paper research active. Market tradeability estimate: "+Math.round(100*score.p_tradeable)+"%"+
-          "; long bracket outcome estimate: "+Math.round(100*score.p_profitable_btc_long)+"%"+
-          ". "+(f?"Forward observations evaluated: "+f.evaluated+"; qualified candidates evaluated: "+f.candidates_evaluated+". ":"")+
-          "These are uncalibrated experimental model outputs, NOT trade approvals or verified win rates."
+         ?"Market-opportunity radar is experimental. Its states suggest when to investigate manual long setups, not when to buy. The older BTC trade-profit model and shadow trading are secondary diagnostics; none authorise trades."
          :"Current BTC model scores withheld: "+(score?"last scored candle "+(signalAgeMinutes??"?")+" minutes old. ":"")+
            (state.message||"Checking market data.")+" "+
            (state.last_error?"Error: "+state.last_error:"")+" Real trading is disabled.";
