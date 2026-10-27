@@ -1,0 +1,25 @@
+# Render Blueprint for standalone, paper-only BTC research app.
+# Import THIS branch as a new service. Does not modify the existing BitUnix app.
+# A paid plan + disk are necessary to preserve rolling SQLite/model history.
+services:
+  - type: web
+    name: btc-signal-lab-research
+    runtime: docker
+    repo: https://github.com/bobby-sparkles-dev/fly-bitunix
+    branch: feat/btc-opportunity-engine-mvp
+    region: frankfurt
+    plan: 0.5c-512mb
+    dockerfilePath: ./btc-opportunity-engine/Dockerfile
+    dockerContext: ./btc-opportunity-engine
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    numInstances: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: PORT
+        value: "8080"
+    disk:
+      name: btc-research-data
+      mountPath: /data
+      sizeGB: 1

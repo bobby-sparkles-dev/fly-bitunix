@@ -1,0 +1,46 @@
+name: BTC engine research checks
+on:
+  push:
+    branches:
+      - feat/btc-opportunity-engine-mvp
+    paths:
+      - "btc-opportunity-engine/**"
+      - ".github/workflows/btc-engine-check.yml"
+  pull_request:
+    branches:
+      - feat/btc-opportunity-engine-mvp
+    paths:
+      - "btc-opportunity-engine/**"
+      - ".github/workflows/btc-engine-check.yml"
+  workflow_dispatch:
+
+jobs:
+  research-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    defaults:
+      run:
+        working-directory: btc-opportunity-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the research engine
+        run: python -m pip install -e '.[test]'
+      - name: Run offline unit tests
+        run: pytest -q
+      - name: Validate ingestion + model against actual public market data
+        run: |
+          btc-edge ingest --days 10
+          btc-edge train --days 7 --test-days 2 --horizon 6
+          btc-edge score
+      - name: Keep research output for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-research-smoke
+          path: |
+            btc-opportunity-engine/models/latest.json
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="theme-color" content="#f6f5ee">
+<title>BTC Signal Lab | Research Preview</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f5ee;
+  --paper: #fffefa;
+  --panel: #fffefa;
+  --panel-soft: #f8f8f3;
+  --ink: #202633;
+  --muted: #5d6673;
+  --line: #dadfdc;
+  --mint: #b6f6d7;
+  --mint-ink: #127357;
+  --lilac: #dcd2ff;
+  --sky: #c8eeff;
+  --peach: #ffdeba;
+  --coral: #ffd0d9;
+  --lemon: #f0f7b0;
+  --red: #a32f4b;
+  --amber: #89601a;
+  --shadow: 0 5px 23px rgba(48, 57, 57, 0.045);
+}
+* { box-sizing: border-box; }
+html { margin: 0; background: var(--bg); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font: 14px/1.52 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(184, 244, 220, 0.33), transparent 39%),
+    radial-gradient(ellipse at 0% 32%, rgba(214, 201, 255, 0.19), transparent 43%),
+    var(--bg);
+}
+main { max-width: 1220px; margin: auto; padding: 28px 22px 54px; }
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 22px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+}
+.brand { font-size: 16px; font-weight: 850; letter-spacing: .035em; color: var(--ink); }
+.brand small { font-size: 11px; font-weight: 750; }
+.mark {
+  display: inline-grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  margin-right: 8px;
+  border: 1px solid #8ce9bf;
+  border-radius: 12px;
+  background: var(--mint);
+  color: #184735;
+  box-shadow: 4px 4px 0 rgba(172, 146, 244, .28);
+}
+small, .muted { color: var(--muted); }
+.headright, .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #d4dcd8;
+  border-radius: 99px;
+  padding: 7px 11px;
+  background: #fffefa;
+  color: #3b4752;
+  font-size: 11px;
+  letter-spacing: .055em;
+  font-weight: 750;
+}
+.dot { width: 8px; height: 8px; border-radius: 99px; background: #e3ad56; }
+.dot.live { background: #26bc93; box-shadow: 0 0 0 3px rgba(38, 188, 147, .16); }
+h1 { font-size: clamp(32px, 4.5vw, 52px); line-height: 1.12; letter-spacing: -.048em; margin: 0 0 13px; }
+h1 span { color: #137c65 !important; background: linear-gradient(transparent 69%, var(--mint) 69%); }
+h2 { font-size: 16px; letter-spacing: -.015em; margin: 0; color: var(--ink); }
+.intro { max-width: 730px; margin: 0 0 26px; color: #4e5b65; font-size: 15px; }
+button {
+  appearance: none;
+  border: 1px solid #b1dfca;
+  border-radius: 11px;
+  padding: 10px 14px;
+  color: #173c33;
+  background: var(--mint);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, transform .15s, box-shadow .15s;
+}
+button:hover { background: #a7ebcf; box-shadow: 0 3px 0 #a8d6c2; }
+button:active { transform: translateY(1px); }
+button:focus-visible, a:focus-visible { outline: 3px solid #8f77df; outline-offset: 3px; }
+button:disabled { opacity: .55; cursor: wait; }
+.layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
+.panel {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid #dce1dc;
+  border-radius: 19px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.full { grid-column: 1 / -1; }
+.eyebrow {
+  color: #5c6774;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .135em;
+  text-transform: uppercase;
+}
+.score { font-size: 48px; font-weight: 850; letter-spacing: -.065em; margin-top: 3px; color: #135c4a; }
+.state { font-size: 23px; font-weight: 780; color: var(--ink); }
+.hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.info {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e5e3f0;
+  border-radius: 12px;
+  background: #f3efff;
+  color: #3d4055;
+  font-size: 12.5px;
+}
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.stat {
+  position: relative;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #dfe5df;
+  border-radius: 14px;
+  background: #f7fbf8;
+}
+.grid3 .stat:nth-child(6n + 2) { background: #f3efff; border-color: #e5def6; }
+.grid3 .stat:nth-child(6n + 3) { background: #f1f9ff; border-color: #dbeaf3; }
+.grid3 .stat:nth-child(6n + 4) { background: #fff5ea; border-color: #f2e3d2; }
+.grid3 .stat:nth-child(6n + 5) { background: #fff2f5; border-color: #f6e0e6; }
+.grid3 .stat:nth-child(6n + 6) { background: #f9fbe8; border-color: #e9eacb; }
+.stat label { display: block; margin-bottom: 7px; color: #485969; font-size: 11.5px; }
+.stat strong { font-size: 22px; font-weight: 800; letter-spacing: -.025em; color: var(--ink); overflow-wrap: anywhere; }
+.stat em { display: block; margin-top: 4px; color: #616b75; font-size: 11.5px; font-style: normal; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.row:last-child { border: 0; }
+.row strong { font-weight: 750; text-align: right; }
+.status { color: var(--amber); }
+.green, .stat strong.green { color: var(--mint-ink); }
+.red, .stat strong.red { color: var(--red); }
+.headingrow { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+#chart { display: block; width: 100%; height: 295px; border-radius: 8px; }
+.chart-meta { display: flex; justify-content: space-between; gap: 7px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.altlist { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 15px; }
+.coin { min-width: 0; padding: 14px; border: 1px solid #dce6dd; border-radius: 12px; background: #eefaef; }
+.coin:nth-child(5n + 2) { background: #f4efff; border-color: #e2daf6; }
+.coin:nth-child(5n + 3) { background: #eef9ff; border-color: #d7ebf6; }
+.coin:nth-child(5n + 4) { background: #fff5e8; border-color: #f3e4d4; }
+.coin:nth-child(5n + 5) { background: #fff1f4; border-color: #f1dce2; }
+.coin small { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 650; }
+.coin strong { font-size: 18px; font-weight: 800; }
+.footer { margin-top: 28px; color: #606d78; font-size: 12px; line-height: 1.75; }
+a { color: #165d91; text-decoration-color: #b9c4ff; text-underline-offset: 3px; }
+.callout {
+  margin-bottom: 24px;
+  padding: 14px 17px;
+  border-left: 4px solid #f0b15e;
+  border-radius: 0 13px 13px 0;
+  background: #fff2dc;
+  color: #624519;
+}
+.progress-shell { margin-bottom: 20px; }
+.progress-track { height: 12px; border: 1px solid #d2dcca; border-radius: 99px; overflow: hidden; background: #edf2e9; }
+.progress-fill { width: 0; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #b8eafa, #a4edc6, #d4b9ff); transition: width .35s ease; }
+.progress-top { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 9px; }
+.progress-extra { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; color: #596775; font-size: 12px; }
+.activity-entry { padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+.activity-entry:last-child { border: 0; }
+.activity-entry span { display: block; margin-bottom: 2px; color: #687481; font-size: 11px; }
+.activity-entry.error { color: #a32f4b; }
+.activity-entry.warning { color: #865912; }
+.stale { margin-top: 9px; color: #8c611f; font-size: 12px; }
+#events { max-height: 245px; overflow: auto; }
+#live-errors { margin-top: 12px; color: #a32f4b; white-space: pre-wrap; overflow-wrap: anywhere; }
+#market-prob, #long-prob { font-variant-numeric: tabular-nums; }
+#research-only-explanation { border-left: 3px solid #b79bee; }
+#active-paper-info { background: #eafbf2; border-color: #d1efdd; }
+#paper-decision-info { background: #fff4e7; border-color: #f3e4cc; }
+[hidden] { display: none !important; }
+@media (max-width: 850px) {
+  .layout { grid-template-columns: 1fr; }
+  .altlist { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 490px) {
+  main { padding: 18px 13px 42px; }
+  header { margin-bottom: 23px; }
+  .panel { padding: 17px; border-radius: 17px; }
+  .stat { padding: 13px; }
+  .stat strong { font-size: 19px; }
+  .grid3 { gap: 9px; margin-top: 17px; }
+  .altlist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .score { font-size: 43px; }
+  .brand { font-size: 15px; }
+  h2 { font-size: 15px; }
+  #chart { height: 235px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button, .progress-fill { transition: none; }
+}
+.reload-link{display:inline-flex;align-items:center;justify-content:center;border:1px solid #cbb9eb;border-radius:11px;padding:10px 14px;color:#393057;background:#eee9ff;font-weight:750;font-size:14px;text-decoration:none}.reload-link:hover{background:#e1d8ff}.initial-chart{border:1px solid #e7e5dc;border-radius:12px;background:#fafbf7;padding:8px;margin-bottom:10px;overflow:hidden}.initial-chart svg{width:100%;height:auto;max-height:260px;display:block}[hidden]{display:none!important}
+
+#shadow-cohorts {display:grid; gap:10px;}
+.shadow-row {display:flex; justify-content:space-between; gap:12px; border:1px solid var(--line);background:#fafcf9;padding:12px 14px;border-radius:12px;align-items:flex-start;}
+.shadow-row:nth-child(3n + 2){background:#f4f0ff;}
+.shadow-row:nth-child(3n + 3){background:#f0f9ff;}
+.shadow-row strong {font-size:13px;line-height:1.4;color:var(--ink);}
+.shadow-row .shadow-meta {display:block;font-size:11px;color:var(--muted);margin-top:2px;}
+.shadow-result {font-size:12px;text-align:right;white-space:nowrap;}
+#shadow-history .row{font-size:12px;}
+@media(max-width:490px){.shadow-row{gap:7px;padding:10px;}.shadow-row strong{font-size:12px;}.shadow-result{font-size:11px;}}
+#evidence-analysis-rows{display:grid;gap:8px}
+.evidence-row{display:flex;gap:12px;justify-content:space-between;border-bottom:1px solid var(--line);padding:9px 0}
+.evidence-row:last-child{border:0}
+.evidence-row small{display:block;color:var(--muted);font-size:11px}
+.evidence-right{text-align:right;min-width:105px;font-size:12px}
+#score-calibration{display:flex;flex-wrap:wrap;gap:8px}
+.calibration-chip{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#eef8f5;font-size:12px}
+.calibration-chip strong{display:block}
+@media(max-width:490px){.evidence-row{gap:7px}.evidence-right{min-width:92px}}
+
+.radar-panel{border:2px solid #a8d9c7;background:linear-gradient(130deg,#f2fcf7,#fffefb);margin-bottom:16px}
+.radar-status{font-size:clamp(24px,4vw,38px);line-height:1.1;letter-spacing:-.055em;font-weight:850;margin:8px 0}
+.radar-status[data-state="LOOK_FOR_LONGS"]{color:#116048}
+.radar-status[data-state="START_WATCHING"]{color:#99601d}
+.radar-status[data-state="STAY_OUT"]{color:#5a6372}
+.radar-status[data-state="DATA_UNAVAILABLE"]{color:#ae3c33}
+.radar-heading{display:flex;gap:18px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.radar-index{background:#eaf5ef;border:1px solid #cce7d5;border-radius:16px;padding:12px 18px;text-align:right;min-width:112px;font-size:30px;font-weight:800}
+.radar-index small{display:block;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.radar-reasons{padding:14px;background:white;border-radius:13px;margin:13px 0;font-size:13px;line-height:1.6;border:1px solid var(--line)}
+.radar-reasons span{display:block}
+.radar-evidence{display:flex;gap:8px;flex-wrap:wrap}
+.radar-evidence .calibration-chip{background:white}
+.radar-meta{font-size:12px;color:var(--muted)}
+.radar-subtle{font-size:12px;color:#596b60;line-height:1.6;margin-top:12px}
+@media(max-width:490px){.radar-index{font-size:24px;padding:9px 13px}.radar-heading{gap:8px}}
+</style>
+<script>
+window.addEventListener("error",function(e){
+  var box=document.getElementById("connection-status");
+  if(box)box.textContent="Dashboard script error: "+String(e.message||"unknown")+". Please use Refresh after reloading this page.";
+});
+window.addEventListener("unhandledrejection",function(e){
+  var box=document.getElementById("connection-status");
+  if(box)box.textContent="Dashboard connection error: "+String(e.reason?.message||e.reason||"unknown")+".";
+});
+</script>
+</head>
+<body>
+<main>
+<header><div class="brand"><span class="mark">₿</span> BTC SIGNAL LAB <small> / RESEARCH</small></div><div class="headright"><span class="pill"><span class="dot" id="dot"></span><span id="feed-status">CONNECTING TO MARKET DATA</span></span><span class="pill">NO LIVE TRADING</span></div></header>
+<h1>Trade less. <span style="color:var(--mint)">Know when to look.</span></h1>
+<p class="intro">One question: are conditions becoming favourable enough to <strong>open the charts and look for long opportunities</strong>? BTC and ten altcoins inform the radar. No automatic entries or exits.</p>
+<div class="callout" role="status"><strong>Unvalidated research radar, not a buy signal.</strong> Its states invite human chart review only. Alerts are being measured prospectively against subsequent market conditions.</div>
+<div id="connection-status" class="info" role="status" style="margin:0 0 14px;background:#eaf9f0;border-color:#b8e4ca">
+  Starting dashboard… The research database is stored separately and is not reset by closing this page.
+</div>
+<div id="saved-data-banner" class="info" role="status" style="margin:0 0 18px;background:#fff4e4;border-color:#e8cda6;font-size:13px">Connecting to the research service. Saved readings will appear here, including their age, even if the market feed is temporarily stale.</div>
+<section class="panel radar-panel" id="radar-panel" aria-label="Market long opportunity radar" aria-live="polite">
+ <div class="eyebrow">MARKET OPPORTUNITY RADAR · FOR HUMAN REVIEW</div>
+ <div class="radar-heading">
+  <div><h2>Is now worth looking for longs?</h2><div class="radar-status" id="radar-status" data-state="DATA_UNAVAILABLE">WAITING FOR DATA</div></div>
+  <div class="radar-index"><small>Opportunity index</small><span id="radar-index">—</span></div>
+ </div>
+ <p id="radar-guidance" style="font-size:15px;font-weight:650;margin:8px 0">Reading the latest completed market candles.</p>
+ <div class="radar-reasons"><strong>What is driving this reading?</strong><div id="radar-reasons"><span id="radar-reason">Waiting for indicators…</span></div></div>
+ <div class="radar-meta"><span id="radar-observed">Last observed: —</span> · <span id="radar-coverage">Altcoin coverage: —</span> · <strong id="radar-validation">NOT VALIDATED</strong></div>
+ <div class="headingrow" style="margin-top:16px"><h2>Did previous alerts precede better market conditions?</h2><small>Forward evidence</small></div>
+ <div id="radar-evidence" class="radar-evidence"><span class="muted">Waiting for enough future candles to measure results.</span></div>
+ <p class="radar-subtle">No entry price or automatic trades. Each reading is frozen when observed and checked later against BTC movement, altcoin breadth, persistence and downside over 30m, 1h, 2h and 4h. This rule-based v1 is experimental; results are not calibrated probabilities.</p>
+ <div class="radar-meta"><a href="/api/opportunity" target="_blank" rel="noopener">Inspect radar evidence</a> · <span id="radar-ledger">Evidence ledger initialising</span></div>
+</section>
+<section class="panel" style="margin-bottom:16px" aria-label="Research explained">
+ <div class="headingrow"><h2>Secondary research: why does the old BTC trade model abstain?</h2><span class="pill" id="engine-plain-state">Starting</span></div>
+ <div id="plain-message" style="font-size:16px;font-weight:650;margin-bottom:9px">Connecting to the research engine…</div>
+ <div class="info" id="feature-coverage-note">Checking the latest BTC score and cross-market feature coverage…</div>
+ <div class="muted" id="plain-detail">First it collects candles, then trains on recent history, then estimates the next 30 minutes. All entries are virtual.</div>
+ <div class="grid3">
+  <div class="stat"><label>Market likely to move cleanly?</label><strong id="market-prob">—</strong><em>Probability of our defined tradeable market, not profit</em></div>
+  <div class="stat"><label>Simulated BTC long profitable?</label><strong id="long-prob">—</strong><em>Experimental net-positive bracket outcome estimate</em></div>
+  <div class="stat"><label>Can we trust these scores?</label><strong id="model-reliability">Not yet</strong><em id="last-trained">Needs forward testing</em></div>
+ </div>
+ <div class="info" id="cost-audit-panel" style="background:#fff5e8;border-color:#eedabf">
+  <strong>Why might the BTC-long probability be so low?</strong>
+  <div id="cost-audit-details" style="margin-top:6px">Next model training will compare gross upward movement with profits after the simulated trading costs.</div>
+</div>
+ <div class="info" id="cost-audit-view" style="background:#fff5e9;border-color:#f1dec0">
+  <strong>Why the long score may be low</strong>
+  <div id="cost-audit-message">Waiting for the current model's fee-versus-price-movement audit.</div>
+  <div id="cost-audit-example" style="margin-top:8px"></div>
+ </div>
+ <div class="info" id="research-only-explanation">Research only means the strategy has not passed historical validation. It can still record paper trades; it cannot send real orders.</div>
+ <div class="info">A 70/100 market score means the model estimates a 70% chance of its defined market condition, not a 70% chance your trade wins. Scores are uncalibrated research estimates. No green light is a trade instruction.</div>
+</section>
+<section class="panel" style="margin-bottom:16px" aria-label="Experimental BTC paper trades">
+  <div class="headingrow">
+    <div><div class="eyebrow">NEW · PRE-REGISTERED RESEARCH</div><h2>Secondary diagnostics: experimental paper trades</h2></div>
+    <span class="pill">SIMULATED · NO MONEY</span>
+  </div>
+  <p class="muted" style="margin:0 0 12px">Unlike the strict model below, these trials test entry ideas without requiring two 62% scores. They only enter after a real completed candle is observed, and we record every result.</p>
+  <div class="grid3">
+    <div class="stat"><label>Waiting to enter</label><strong id="shadow-queued">—</strong><em>Queued after a real-time observation</em></div>
+    <div class="stat"><label>Open experiments</label><strong id="shadow-open">—</strong><em>Simulated positions, not orders</em></div>
+    <div class="stat"><label>Finished experiments</label><strong id="shadow-closed">—</strong><em>Wins and losses measured after costs</em></div>
+  </div>
+  <div class="info" id="shadow-mode-note">Waiting for research engine to record its first forward-only experiment.</div>
+  <div class="headingrow" style="margin-top:20px"><h2>Compare the 12 experiments</h2><small>30m, 1h, 2h, 4h</small></div>
+  <div id="shadow-cohorts"><span class="muted">Waiting for experimental trial results…</span></div>
+  <div class="headingrow" style="margin-top:20px"><h2>Latest experimental entries</h2><small id="shadow-recent-note">Paper only</small></div>
+  <div id="shadow-history" class="muted">No recorded experiments yet.</div>
+  <div class="info">The hourly reference is deliberately unfiltered to check that the simulator works, not to recommend buying. Rebound and breakout experiments are different hypotheses. Results overlap across holding periods and are <strong>not independent trades</strong>. Source is Binance.US spot prices with assumed futures-like fees, not Bitunix executable futures quotes. No funding, account-specific fees or leverage model.</div>
+</section>
+<section class="panel" style="margin-bottom:16px" aria-label="Trading evidence and learning">
+ <div class="headingrow">
+   <div><div class="eyebrow">RESEARCH INTEGRITY</div><h2>Are the results better than chance?</h2></div>
+   <span class="pill" id="evidence-validation">NOT VALIDATED</span>
+ </div>
+ <div class="grid3">
+  <div class="stat"><label>Unique entry times</label><strong id="evidence-unique">—</strong><em>Same-candle strategies share one opportunity</em></div>
+  <div class="stat"><label>Market decisions logged</label><strong id="evidence-decisions">—</strong><em>Scores and rejected signals recorded</em></div>
+  <div class="stat"><label>30-min outcomes observed</label><strong id="evidence-labelled">—</strong><em>Executed-after-observation price tests</em></div>
+ </div>
+ <div class="info" id="research-evidence-note">Saving pre-move indicators and comparing separate entry opportunities. Early wins do not raise the model's scores.</div>
+ <div class="info" id="research-multiple-test-caution" style="background:#fff1dc;border-color:#e8d7b6">
+  Chance safeguard: simultaneous comparison of 12 strategies, independent days, conservative intervals and net returns. Early success remains unproven.
+ </div>
+ <div class="headingrow" style="margin-top:20px"><h2>Confidence by experiment</h2><small>95% win-rate intervals and net R</small></div>
+ <div id="evidence-analysis-rows" aria-live="polite"><span class="muted">Awaiting forward-trial evidence.</span></div>
+ <div class="headingrow" style="margin-top:20px"><h2>Were higher long scores more accurate?</h2></div>
+ <div id="score-calibration"><span class="muted">Awaiting completed forecast horizons.</span></div>
+ <div class="info">Not a trading approval. We require sufficient distinct opportunities, observations across multiple days, positive returns after costs, and confirmation on later untouched data. The 12 tests share some market events. A high early win rate may be luck. The engine will not automatically change its thresholds or place orders.</div>
+ <p class="muted" style="font-size:12px;margin-top:16px">Read-only data: <a href="/api/research" target="_blank" rel="noopener">Research summary</a> · <a href="/api/research/decisions" target="_blank" rel="noopener">Recorded decision-time indicators and later outcomes</a>.</p>
+</section>
+<section class="panel" style="margin-bottom:16px" aria-label="Strict model paper trade results">
+ <div class="headingrow"><h2>Strict 62% / 62% model strategy</h2><span class="pill">NO REAL MONEY</span></div>
+ <div class="grid3">
+  <div class="stat"><label>Waiting to enter</label><strong id="paper-queued">0</strong><em>Next eligible full candle</em></div>
+  <div class="stat"><label>Currently open</label><strong id="paper-open">0</strong><em>Virtual BTC positions</em></div>
+  <div class="stat"><label>Finished trades</label><strong id="paper-closed">0</strong><em>Completed, evaluated setups</em></div>
+  <div class="stat"><label>Wins / losses</label><strong id="paper-winloss">0 / 0</strong><em>After assumed costs</em></div>
+  <div class="stat"><label>Win rate</label><strong id="paper-winrate">—</strong><em>Target: 55%; not verified until enough trades</em></div>
+  <div class="stat"><label>Total result</label><strong id="paper-net">0 R</strong><em>R = initial price risk, not pounds</em></div>
+ </div>
+ <div style="margin-top:16px" class="eyebrow">Evidence gathered toward first 100 settled paper trades</div>
+ <div class="progress-track" style="margin-top:8px"><div class="progress-fill" id="evidence-fill" style="width:0%"></div></div>
+ <div class="progress-extra"><span id="evidence-text">0 of 100 settled</span><span id="paper-availability">First results appear after a valid paper entry closes</span></div>
+ <div class="info" id="paper-decision-info">Checking why no trade has qualified…</div><div class="info" id="active-paper-info">No open paper trade. No trades are executed on an exchange.</div>
+ <div class="headingrow" style="margin-top:20px"><h2>Historical backtest, kept separate</h2><small>Past data, not forward proof</small></div>
+ <div id="backtest-summary" class="muted">Waiting for first historical evaluation.</div>
+ <div class="headingrow" style="margin-top:18px"><h2>Recent virtual trades</h2></div>
+ <div id="paper-history" class="muted">No trades recorded.</div>
+</section>
+<section class="panel" style="margin-bottom:16px"><div class="headingrow"><h2>Historical memory</h2><span class="pill" id="training-window">30-day warm-up</span></div><div class="progress-track"><div class="progress-fill" id="archive-bar"></div></div><div class="progress-extra"><span id="archive-info">Checking archived candles...</span><span>Target: 180 days across 11 assets</span></div>
+ <div class="progress-extra"><strong id="archive-persisted">Archive checkpoint: checking…</strong><span id="archive-last-coin">Last import: —</span></div>
+ <div class="info" id="archive-health" role="status">Checking archive coverage and last saved checkpoint.</div><div class="info">The short-window model continues while earlier candles are imported. The 60-day training / 14-day historical test model activates only once sufficient matched history is available.</div></section>
+<section class="panel progress-shell" id="research-progress-panel" aria-live="polite">
+ <div class="headingrow"><div><div class="eyebrow">RESEARCH ENGINE · LIVE PROGRESS</div><h2 id="phase-label">Waiting for server status</h2></div><strong id="progress-value" style="font-size:24px">—</strong></div>
+ <div class="progress-track" role="progressbar" aria-label="Research cycle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+ <div class="progress-extra"><span id="engine-source">Exchange: checking…</span><span id="worker-alive">Worker heartbeat: —</span><span id="retry-deadline"></span></div><div class="progress-extra"><span id="current-market">Current market: —</span><span id="candle-count">Candles processed: —</span><span id="heartbeat">Last progress: —</span></div>
+ <div id="stale-warning" class="stale" hidden></div><div id="live-errors" role="alert"></div>
+ <div class="headingrow" style="margin-top:18px"><h2>Recent system events</h2><small>Refreshes every 10 seconds</small></div>
+ <div id="events"><span class="muted">Awaiting event data…</span></div>
+</section>
+<div class="layout">
+<section class="panel">
+<div class="hero"><div><div class="eyebrow">BTC OPPORTUNITY GATE</div><div class="state" style="margin-top:9px">NOT ACTIVATED</div><div class="muted">Awaiting trained, forward-validated model</div></div><div><div class="eyebrow">MODEL SCORE</div><div class="score">—</div></div></div>
+<div class="info">Target: 55% wins with positive net results after estimated costs. Historical backtests and live paper trades are measured separately.</div>
+<div class="grid3">
+<div class="stat"><label>BTC price</label><strong id="price">—</strong><em id="price-status">Connecting...</em></div>
+<div class="stat"><label>Trend efficiency · 1h</label><strong id="efficiency">—</strong><em>0–100% directional travel</em></div>
+<div class="stat"><label>BTC change · 1h</label><strong id="change">—</strong><em>Price movement</em></div>
+<div class="stat"><label>Volume vs previous hour</label><strong id="volume">—</strong><em>Relative notional activity</em></div>
+<div class="stat"><label>Realised volatility · 1h</label><strong id="volatility">—</strong><em>Five-minute log returns</em></div>
+<div class="stat"><label>Altcoin breadth · 1h</label><strong id="breadth">—</strong><em>Share of tracked coins up</em></div>
+</div>
+</section>
+<section class="panel">
+<div class="headingrow"><h2>System status</h2><span class="pill">READ ONLY</span></div>
+<div class="row"><span>Public price feed</span><strong id="data-quality" class="status">Checking</strong></div>
+<div class="row"><span>Live learning process</span><strong class="status">Not deployed</strong></div>
+<div class="row"><span>Market-condition model</span><strong class="status">Not trained</strong></div>
+<div class="row"><span>YouTube trader extraction</span><strong class="status">Offline module</strong></div>
+<div class="row"><span>Paper-trade evaluator</span><strong class="status">Offline module</strong></div>
+<div class="row"><span>Automated trading</span><strong>Disabled</strong></div>
+<div style="margin-top:24px"><div class="headingrow"><h2>Data controls</h2></div><div class="actions"><button id="refresh">↻ Check for updated data</button><a href="/" class="reload-link" id="reload-full">↻ Reload entire page</a><button id="demo">View demo chart</button></div><p id="refresh-result" role="status" class="muted" style="font-size:12px;margin-top:9px">No refresh performed yet.</p><p class="muted" style="font-size:12px">Automatic candle refresh every 90 seconds while this page is open. Demo mode is synthetic and is never used to train models.</p></div>
+</section>
+<section class="panel full">
+<div class="headingrow"><div><div class="eyebrow">BITCOIN / SPOT · 5-MIN CANDLES</div><h2 id="chart-title">BTC / USDT</h2></div><span class="pill" id="chart-tag">WAITING FOR DATA</span></div>
+<div id="server-chart-fallback" class="initial-chart"><!--SERVER_STATIC_CHART--></div><canvas id="chart"></canvas><div class="chart-meta"><span id="chart-note">Loading completed candles...</span><span id="last-closed"></span></div>
+</section>
+<section class="panel full"><div class="headingrow"><div><div class="eyebrow">CROSS-MARKET CONTEXT</div><h2>Altcoin momentum watch</h2></div><small>1-hour change from completed 5-minute bars</small></div><div class="altlist" id="altlist"><span class="muted">Loading altcoin data...</span></div></section>
+</div>
+<p class="footer">Public-data preview only. Source: completed candles saved by the research backend for the same exchange venue used by its model. Candle timestamps use UTC; the most recent incomplete candle is ignored. Data freshness and server errors are shown explicitly rather than replaced with invented live results. The hosted chart and backend read the same saved exchange candles. <a href="https://github.com/bobby-sparkles-dev/fly-bitunix/pull/1" rel="noopener noreferrer" target="_blank">Research source and draft pull request</a>.</p>
+</main>
+<script>
+"use strict";
+const el=(id)=>document.getElementById(id);
+const symbols=["ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","ADAUSDT","DOGEUSDT","LINKUSDT","AVAXUSDT","TRXUSDT","LTCUSDT"];
+let base="https://data-api.binance.vision/api/v3/klines";
+let mode="live",lastBars=[],lastMarketCheckAt=null,marketRequestNumber=0,activeMarketController=null;
+function format(n,d=2){return Number.isFinite(n)?n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";}
+function pct(n){return Number.isFinite(n)?(n>=0?"+":"")+format(n,2)+"%":"—";}
+function parseCandles(raw){const now=Date.now();return raw.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).filter(r=>r.t+300000<=now&&Number.isFinite(r.c)&&r.c>0);}
+async function candles(symbol,limit){const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),12000);try{const r=await fetch(base+"?symbol="+encodeURIComponent(symbol)+"&interval=5m&limit="+limit,{signal:ctrl.signal,cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const json=await r.json();if(!Array.isArray(json))throw Error("Invalid exchange response");return parseCandles(json);}finally{clearTimeout(t);}}
+function lastHour(b){return b.length>=13?100*(b[b.length-1].c/b[b.length-13].c-1):NaN;}
+function efficiency(b){if(b.length<13)return NaN;const c=b.slice(-13),travel=c.slice(1).reduce((s,r,i)=>s+Math.abs(r.c-c[i].c),0);return travel?100*Math.abs(c[12].c-c[0].c)/travel:0;}
+function volatility(b){if(b.length<13)return NaN;let values=[];for(let i=b.length-12;i<b.length;i++)values.push(Math.log(b[i].c/b[i-1].c));let mean=values.reduce((a,v)=>a+v,0)/values.length;return Math.sqrt(values.reduce((a,v)=>a+(v-mean)**2,0)/values.length)*100;}
+function volumeRatio(b){if(b.length<25)return NaN;const sum=a=>a.reduce((s,c)=>s+c.v*c.c,0);const prev=sum(b.slice(-24,-12)),current=sum(b.slice(-12));return prev?current/prev:NaN;}
+function setFeed(state,msg){el("feed-status").textContent=msg;el("dot").classList.toggle("live",state==="ok");el("data-quality").textContent=state==="ok"?"Stored candles fresh":state==="stale"?"Stored candles outdated":state==="error"?"Data unavailable":"Checking";el("data-quality").className=state==="ok"?"green":"status";}
+function renderMetrics(b,breadth){const latest=b[b.length-1];el("price").textContent="$"+format(latest.c,latest.c>=1000?0:2);el("price-status").textContent="Last completed 5m candle";el("efficiency").textContent=format(efficiency(b),0)+"%";el("change").textContent=pct(lastHour(b));el("change").className=lastHour(b)>=0?"green":"red";el("volume").textContent=format(volumeRatio(b),2)+"×";el("volatility").textContent=format(volatility(b),3)+"%";el("breadth").textContent=Number.isFinite(breadth)?format(breadth,0)+"%":"—";}
+function draw(b){
+ const canvas=el("chart"),ctx=canvas.getContext("2d");const ratio=window.devicePixelRatio||1;const width=canvas.clientWidth,height=canvas.clientHeight;canvas.width=width*ratio;canvas.height=height*ratio;ctx.scale(ratio,ratio);ctx.clearRect(0,0,width,height);
+ if(!b.length)return;
+ const plot={l:11,r:width-66,t:14,b:height-27};const hi=Math.max(...b.map(x=>x.h)),lo=Math.min(...b.map(x=>x.l));const gap=Math.max((hi-lo)*.06,.001),high=hi+gap,low=lo-gap;const y=v=>plot.t+(high-v)/(high-low)*(plot.b-plot.t);
+ ctx.font="11px system-ui";ctx.textAlign="right";
+ for(let i=0;i<5;i++){const yy=plot.t+i*(plot.b-plot.t)/4;ctx.strokeStyle="#dddcd3";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(plot.l,yy);ctx.lineTo(plot.r,yy);ctx.stroke();ctx.fillStyle="#677581";ctx.fillText(format(high-i*(high-low)/4,0),width-4,yy-4);}
+ const spacing=(plot.r-plot.l)/b.length;const cw=Math.max(1,Math.min(8,spacing*.66));b.forEach((r,i)=>{const x=plot.l+(i+.5)*spacing;const up=r.c>=r.o;ctx.strokeStyle=ctx.fillStyle=up?"#249f82":"#dc748a";ctx.beginPath();ctx.moveTo(x,y(r.h));ctx.lineTo(x,y(r.l));ctx.stroke();const top=y(Math.max(r.o,r.c)),bottom=y(Math.min(r.o,r.c));ctx.fillRect(x-cw/2,top,cw,Math.max(1.5,bottom-top));});
+ ctx.fillStyle="#677581";ctx.textAlign="left";ctx.fillText(new Date(b[0].t).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"}),plot.l,height-5);ctx.textAlign="right";ctx.fillText(new Date(b[b.length-1].t).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"}),plot.r,height-5);
+ const fallback=document.getElementById("server-chart-fallback");if(fallback)fallback.hidden=true;
+}
+function renderAlts(items){el("altlist").innerHTML=items.map(x=>'<div class="coin"><small>'+x.symbol.replace("USDT","")+'</small><strong class="'+(x.change>=0?"green":"red")+'">'+pct(x.change)+'</strong></div>').join("");}
+async function load(){
+ if(mode!=="live")return;
+ const requestId=++marketRequestNumber;
+ if(activeMarketController)activeMarketController.abort();
+ const newController=new AbortController();
+ activeMarketController=newController;
+ const stateNode=el("connection-status");
+ if(stateNode)stateNode.textContent="Checking the saved BTC market data… The Refresh button remains available; tap it again to retry.";
+
+ const attemptedAt=new Date();
+ if(el("refresh-result")) el("refresh-result").textContent="Checking saved BTC candles at "+attemptedAt.toLocaleTimeString("en-GB")+"…";
+ setFeed("loading","CHECKING SAVED CANDLES");
+ try{
+  const staticPreview=["raw.githack.com","rawgit.com"].includes(location.hostname);
+  let data, b, items, stale=false, ageMinutes=null, sourceLabel;
+  if(!staticPreview){
+    const ctrl=newController;
+    const timer=setTimeout(()=>ctrl.abort(),35000);
+    const waking=setTimeout(()=>{
+      if(el("refresh-result"))el("refresh-result").textContent=
+        "The free hosting service may be waking up. Still checking saved candles…";
+    },7000);
+    try{
+      const response=await fetch("/api/market",{signal:ctrl.signal,cache:"no-store"});
+      data=await response.json();
+      if(!response.ok)throw Error(data?.details||data?.error||"Market API returned HTTP "+response.status);
+    }finally{clearTimeout(timer);clearTimeout(waking);}
+    b=parseCandles(data.symbols?.BTCUSDT||[]);
+    if(b.length<30)throw Error("Research database has fewer than 30 completed BTC candles");
+    items=symbols.map(symbol=>{
+      const bars=parseCandles(data.symbols?.[symbol]||[]);
+      return bars.length>=13?{symbol,change:lastHour(bars)}:null;
+    }).filter(Boolean);
+    stale=Boolean(data.stale);
+    ageMinutes=Number(data.age_minutes);
+    sourceLabel=data.venue==="binance_us"?"Binance.US":"Binance.com";
+  }else{
+    b=await candles("BTCUSDT",140);
+    const results=await Promise.allSettled(symbols.map(symbol=>candles(symbol,20)));
+    items=results.map((result,i)=>result.status==="fulfilled"&&result.value.length>=13
+      ?{symbol:symbols[i],change:lastHour(result.value)}:null).filter(Boolean);
+    sourceLabel="Static preview";
+  }
+  if(mode!=="live"||requestId!==marketRequestNumber)return;
+  lastBars=b;
+  const breadth=items.length>=5?100*items.filter(x=>x.change>0).length/items.length:NaN;
+  renderMetrics(b,breadth);draw(b);
+  renderAlts(items);
+  try { localStorage.setItem("btc-signal-last-chart-v2",JSON.stringify({
+    at:Date.now(),venue:sourceLabel,btc:b,alts:items
+  })); } catch(storageError) { /* optional browser-only cache */ }
+  const updatedAt=new Date(b[b.length-1].t+300000).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"});
+  el("last-closed").textContent="Last completed: "+updatedAt+" UTC";
+  el("chart-tag").textContent=stale?"STORED DATA STALE":"SAVED EXCHANGE CANDLES";
+  el("chart-note").textContent=(stale?"Outdated, not live · ":"")+"Saved "+sourceLabel+
+    " candles · "+b.length+" BTC bars"+(Number.isFinite(ageMinutes)?" · last bar "+ageMinutes.toFixed(1)+" min old":"");
+  el("price-status").textContent=stale?"Stored price is outdated":"Price from last completed saved candle";
+  setFeed(stale?"stale":"ok",stale?"SAVED CANDLES OUTDATED":"BACKEND DATA · "+items.length+"/10 ALTS");
+  if(stateNode)stateNode.textContent=stale
+    ?"Connected to research server. Latest stored BTC candle is old; not a live price."
+    :"Connected to the research server. BTC and "+items.length+" altcoin markets loaded.";
+  lastMarketCheckAt=Date.now();
+  const checked=attemptedAt.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  if(el("refresh-result")) el("refresh-result").textContent="Checked "+checked+" · Latest saved candle "+updatedAt+
+    " UTC"+(Number.isFinite(ageMinutes)?" · "+ageMinutes.toFixed(1)+" min old":"")+
+    (stale?". Prices are cached because the worker has not saved newer candles.":".");
+  if(el("saved-data-banner")) el("saved-data-banner").textContent=stale?
+   "Saved market data is available, but is "+(Number.isFinite(ageMinutes)?ageMinutes.toFixed(1):"?")+
+   " minutes old. Showing the last saved prices, not live prices. Refresh rechecks stored data; the backend imports new candles independently.":
+   "Saved market data is available. Latest BTC candle: "+updatedAt+" UTC. Scores and charts are research-only.";
+ }catch(e){
+   if(mode!=="live"||requestId!==marketRequestNumber)return;
+   const desc=e?.name==="AbortError"
+      ?"The request timed out while the free server was responding. Tap Refresh again."
+      :(e?.message||String(e));
+   if(stateNode)stateNode.textContent="The saved market-data request failed: "+desc+
+     " The database is separate and this does not mean its records were erased.";
+   setFeed("error",lastBars.length?"SHOWING SAVED CHART":"MARKET FEED UNAVAILABLE");
+   if(el("refresh-result"))el("refresh-result").textContent="Checked "+
+     attemptedAt.toLocaleTimeString("en-GB")+" · Market-data request failed: "+(e?.message||String(e));
+   if(el("saved-data-banner"))el("saved-data-banner").textContent=lastBars.length?
+     "Market-data refresh failed. Previously loaded chart is retained; it is NOT live. "+
+     (e?.message||String(e)):
+     "Cannot retrieve stored price data right now. The app's research model may still be saved in the backend. "+
+     (e?.message||String(e));
+   el("chart-tag").textContent=lastBars.length?"PREVIOUS CHART · STALE":"MARKET DATA UNAVAILABLE";
+   el("chart-note").textContent="Could not load candles stored by the research engine: "+
+      (e&&e.message?e.message:"Unknown error")+". Research status above may still be working.";
+   el("price-status").textContent=lastBars.length?"Last saved value; refresh failed":"Stored candle data unavailable";
+   el("altlist").innerHTML='<span class="muted">Stored altcoin candles unavailable. No fabricated live prices shown.</span>';
+ }finally{
+   if(requestId===marketRequestNumber)activeMarketController=null;
+ }
+}
+function sample(){const arr=[];const now=Math.floor(Date.now()/300000)*300000-300000;let p=70800;for(let i=0;i<100;i++){const o=p;const jump=Math.sin(i*.28)*42+Math.cos(i*.17)*31+(i>54?11:-2);p=o+jump;arr.push({t:now-(99-i)*300000,o,c:p,h:Math.max(o,p)+26+(i%7)*9,l:Math.min(o,p)-18-(i%5)*9,v:20+(i%9)*3});}return arr;}
+function showLocalMarketCache(){
+  try{
+    const cached=JSON.parse(localStorage.getItem("btc-signal-last-chart-v2")||"null");
+    if(!cached||!Array.isArray(cached.btc)||cached.btc.length<30)return;
+    lastBars=cached.btc;
+    draw(cached.btc);
+    renderMetrics(cached.btc,NaN);
+    renderAlts(Array.isArray(cached.alts)?cached.alts:[]);
+    setFeed("stale","PREVIOUSLY SAVED · NOT LIVE");
+    el("chart-tag").textContent="BROWSER CACHE · NOT LIVE";
+    el("price-status").textContent="Last chart saved in this browser, not a current price";
+    el("chart-note").textContent="Historical browser copy; verifying latest server data";
+    const stamp=new Date(cached.at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+    el("connection-status").textContent="Showing previously viewed candles from "+stamp+
+      ". They may be old. Checking the server for updates…";
+  }catch(e){ /* browser storage may be disabled */ }
+}
+function demo(){mode="demo";setFeed("error","SYNTHETIC DEMO · NOT LIVE");const b=sample();lastBars=b;draw(b);el("chart-title").textContent="BTC / USD · SIMULATED";el("chart-tag").textContent="SYNTHETIC DATA";el("chart-note").textContent="Made-up prices for UI preview only · never real market observations";el("last-closed").textContent="No live price";el("price").textContent="DEMO";el("price-status").textContent="Synthetic candles";for(const id of ["efficiency","change","volume","volatility","breadth"])el(id).textContent="—";el("altlist").innerHTML='<span class="muted">Altcoin readings hidden in demo mode.</span>';el("demo").textContent="Return to live data";}
+el("refresh").addEventListener("click",()=>{
+ mode="live";el("chart-title").textContent="BTC / USDT";
+ el("demo").textContent="View demo chart";
+ load();
+ if(typeof window.refreshResearchStatus==="function")window.refreshResearchStatus();
+});
+el("demo").addEventListener("click",()=>{if(mode==="demo"){mode="live";el("chart-title").textContent="BTC / USDT";el("demo").textContent="View demo chart";load();}else demo();});
+window.addEventListener("resize",()=>{if(lastBars.length)draw(lastBars);});
+setInterval(()=>{if(mode==="live")load();},90000);
+showLocalMarketCache();
+load();
+</script>
+<script>
+/* Server-backed research state. The raw.githack static preview has no /api/state.
+   Never substitute demo or client-calculated metrics for trained model scores. */
+(async function loadResearchState(){
+  if(location.hostname==="raw.githack.com" || location.hostname==="rawgit.com")return;
+  const callout=document.querySelector(".callout");
+  function setText(id,value){const node=document.getElementById(id);if(node)node.textContent=value;}
+  function prettyTime(t){if(!t)return "—";const n=Date.parse(t);return Number.isFinite(n)?new Date(n).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"—";}
+  function setVal(id,value){const n=document.getElementById(id);if(n)n.textContent=value;}
+  function asPct(n){return typeof n==="number"&&Number.isFinite(n)?(n*100).toFixed(1)+"%":"—";}
+  function showRadar(s, fresh){
+    const r=s.opportunity_radar;
+    const states={
+      STAY_OUT:["STAY OUT","No convincing broad long opportunity at present. Focus elsewhere."],
+      START_WATCHING:["START WATCHING","Market participation is improving. Open charts selectively; await real setups."],
+      LOOK_FOR_LONGS:["LOOK FOR LONGS","Several market factors align. Inspect actual chart setups: this is not a buy signal."],
+      DATA_UNAVAILABLE:["DATA UNAVAILABLE","The latest observations cannot support a current reading."]
+    };
+    const age=Date.now()-Date.parse(r?.observed_at||"");
+    const current=Boolean(fresh&&r&&r.context_complete&&Number.isFinite(age)&&age>=0&&age<15*60000);
+    const state=current&&states[r?.state]?r.state:"DATA_UNAVAILABLE";
+    const item=states[state];
+    const node=document.getElementById("radar-status");
+    if(node){node.textContent=item[0];node.dataset.state=state;}
+    setVal("radar-guidance",item[1]);
+    setVal("radar-index",current&&Number.isInteger(r.opportunity_index)?r.opportunity_index+"/100":"—");
+    setVal("radar-observed",r?.observed_at?"Observed "+new Date(r.observed_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"})+" UTC":"No recent observation");
+    setVal("radar-coverage",r?"Altcoins with valid indicators: "+r.altcoins_covered+"/10":"Coverage pending");
+    setVal("radar-validation","RESEARCH ONLY · UNVALIDATED");
+    setVal("radar-ledger",s.opportunity_ledger_working?"Point-in-time records active":"Ledger not yet confirmed");
+    const lines=document.getElementById("radar-reasons");
+    if(lines){
+      lines.replaceChildren();
+      for(const reason of (current?r?.reasons:["Reading missing, old or incomplete; no current alert"]).slice(0,9)){
+        const div=document.createElement("span");
+        div.textContent=reason;lines.append(div);
+      }
+    }
+    const evidence=document.getElementById("radar-evidence");
+    if(!evidence)return;
+    evidence.replaceChildren();
+    const sample=(s.opportunity_evidence?.comparison||[]).filter(x=>x.horizon_minutes===60);
+    const labels={STAY_OUT:"Stay out",START_WATCHING:"Watching",LOOK_FOR_LONGS:"Look for longs"};
+    for(const stateName of ["STAY_OUT","START_WATCHING","LOOK_FOR_LONGS"]){
+      const x=sample.find(x=>x.state===stateName);
+      const cell=document.createElement("div");cell.className="calibration-chip";
+      const name=document.createElement("strong");name.textContent=labels[stateName];
+      const detail=document.createElement("span");
+      const n=Number(x?.spaced_observations||0);
+      detail.textContent=n?x.favourable_windows+"/"+n+" favourable 1h windows · "+
+          x.distinct_days+" days · unvalidated":"No settled spaced 1h windows";
+      cell.append(name,detail);evidence.append(cell);
+    }
+  }
+  function showPaper(s){
+    const p=s.paper_trades||{};
+    const closed=p.completed||0,win=p.wins||0,loss=p.losses||0;
+    setVal("paper-queued",p.queued??0);setVal("paper-open",p.open??0);setVal("paper-closed",closed);
+    setVal("paper-winloss",win+" / "+loss);setVal("paper-winrate",asPct(p.win_rate));
+    setVal("paper-net",typeof p.total_net_r==="number"?(p.total_net_r>0?"+":"")+p.total_net_r.toFixed(2)+" R":"—");
+    setVal("evidence-text",closed+" of 100 settled"+(p.invalid?" · "+p.invalid+" invalid-data exclusions":""));
+    document.getElementById("evidence-fill").style.width=Math.max(0,Math.min(100,closed))+"%";
+    const active=p.active;
+    setVal("active-paper-info",active?
+       active.status==="QUEUED"?
+         "A virtual trade is queued for "+new Date(active.entry_open_ms).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})+". Entry is not guaranteed; only a completed, observable candle can confirm it.":
+         "Virtual long OPEN · entry $"+Number(active.entry_fill).toLocaleString("en-US",{maximumFractionDigits:0})+
+         " · stop $"+Number(active.stop).toLocaleString("en-US",{maximumFractionDigits:0})+
+         " · target $"+Number(active.target).toLocaleString("en-US",{maximumFractionDigits:0})
+      :"No open or queued paper trade. The engine may stay inactive for long periods.");
+    setVal("paper-availability",closed===0?"Win rate becomes available after the first settled trade; reliable evidence needs substantially more.":"Initial review at 100 settled trades; 200+ preferred.");
+    const history=document.getElementById("paper-history");history.replaceChildren();
+    if(!Array.isArray(p.recent)||!p.recent.length){history.textContent="No virtual entries have been taken yet.";return;}
+    for(const t of p.recent){
+      const item=document.createElement("div");item.className="row";
+      const left=document.createElement("span");left.textContent=String(t.status||"")+
+       " · "+(t.observed_at?new Date(t.observed_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"");
+      const right=document.createElement("strong");right.className=t.status==="WIN"?"green":t.status==="LOSS"?"red":"status";
+      right.textContent=typeof t.net_r==="number"?(t.net_r>0?"+":"")+t.net_r.toFixed(2)+" R":(t.reason||"Awaiting result");
+      item.append(left,right);history.append(item);
+    }
+  }
+  function showShadow(s){
+    const sh=s.shadow_trials, labels={
+      hourly_reference:"Hourly reference (control)",
+      momentum_breakout:"Momentum breakout",
+      dip_rebound:"Dip + rebound"
+    };
+    const put=(id,value)=>{const e=document.getElementById(id);if(e)e.textContent=value;};
+    if(!sh){
+      put("shadow-mode-note","The experimental simulator is starting. The strict model remains separate.");
+      return;
+    }
+    const totals=sh.trials||{};
+    put("shadow-queued",totals.queued??0);
+    put("shadow-open",totals.open??0);
+    put("shadow-closed",totals.completed??0);
+    const overallCount=Number(totals.completed||0);
+    put("shadow-mode-note","Forward-only experimental trials active · "+
+      (totals.queued||0)+" queued, "+(totals.open||0)+" open, "+
+      overallCount+" settled ("+(totals.wins||0)+" wins / "+(totals.losses||0)+" losses). "+
+      "Do not treat grouped outcomes as independent or validated.");
+    const cohorts=document.getElementById("shadow-cohorts");
+    cohorts.replaceChildren();
+    const ordered=["hourly_reference","momentum_breakout","dip_rebound"];
+    for(const strategy of ordered)for(const minutes of [30,60,120,240]){
+      const row=(sh.cohorts||[]).find(c=>c.strategy_id===strategy&&c.horizon_minutes===minutes);
+      const item=document.createElement("div");item.className="shadow-row";
+      const left=document.createElement("div");
+      const name=document.createElement("strong");name.textContent=labels[strategy]+" · "+(minutes>=60?minutes/60+"h":minutes+"m");
+      const meta=document.createElement("span");meta.className="shadow-meta";
+      meta.textContent="Queued "+(row?.queued||0)+" · Open "+(row?.open||0)+" · Finished "+(row?.completed||0);
+      left.append(name,meta);
+      const right=document.createElement("div");right.className="shadow-result";
+      const rate=document.createElement("strong");
+      rate.textContent=typeof row?.win_rate==="number"?(row.win_rate*100).toFixed(1)+"% wins":"Awaiting results";
+      const average=document.createElement("span");average.className="shadow-meta";
+      average.textContent=typeof row?.mean_net_r==="number"?
+        (row.mean_net_r>=0?"+":"")+row.mean_net_r.toFixed(2)+" R average":"No settled results";
+      right.append(rate,average);item.append(left,right);cohorts.append(item);
+    }
+    const history=document.getElementById("shadow-history");history.replaceChildren();
+    for(const trial of (sh.recent||[]).slice(0,8)){
+      const line=document.createElement("div");line.className="row";
+      const left=document.createElement("span");
+      left.textContent=(labels[trial.strategy_id]||trial.strategy_id)+" · "+
+         trial.horizon_minutes+"m · "+String(trial.status)+
+         " · "+(trial.observed_at?new Date(trial.observed_at).toLocaleString("en-GB",{hour:"2-digit",minute:"2-digit"}):"");
+      const right=document.createElement("strong");
+      right.className=trial.status==="WIN"?"green":trial.status==="LOSS"?"red":"status";
+      right.textContent=typeof trial.net_r==="number"?(trial.net_r>=0?"+":"")+trial.net_r.toFixed(2)+" R":"Pending";
+      line.append(left,right);history.append(line);
+    }
+    if(!history.children.length)history.textContent="First forward trial has not been recorded yet.";
+    const cost=sh.research_costs||{};
+    put("shadow-recent-note","Assumed round-trip costs: "+(cost.round_trip_bps_approx??"—")+" bps");
+  }
+  function showEvidence(state){
+    const report=state.research_evidence;
+    const put=(id,value)=>{const node=document.getElementById(id);if(node)node.textContent=value;};
+    if(!report){
+      put("research-evidence-note","Research comparison not available yet. The strict model is unchanged.");
+      return;
+    }
+    put("evidence-validation","NOT VALIDATED");
+    put("evidence-unique",report.unique_signal_timestamps??0);
+    put("evidence-decisions",report.observed_candles??0);
+    put("evidence-labelled",report.forecast_windows_analysed??0);
+    const chance=report.chance_control;
+    const rawCalibration=report.separate_model_score_calibration;
+    if(chance){
+      const eligible=(chance.cohorts||[]).filter(x=>x.status==="QUALIFIES_FOR_SEPARATE_PRECOMMITTED_FORWARD_HOLDOUT");
+      const settle=chance.total_settled_trials||0;
+      put("evidence-unique",chance.distinct_settled_setups??0);
+      put("research-multiple-test-caution",
+        settle+" settled trades share only "+(chance.distinct_settled_setups||0)+
+        " different entry setups over "+(chance.distinct_days_settled||0)+
+        " trading days. Twelve strategies are tested simultaneously. "+
+        "A win-rate interval is corrected for 12 comparisons, and average profitability must be positive across day-cluster resamples. "+
+        (eligible.length?"A candidate needs a NEW independent forward holdout; no auto-promotion.":"No edge has been validated."));
+    }
+    const passed=report.strict_gate_observations||{};
+    put("research-evidence-note",
+      "Historical model thresholds have not been relaxed. "+
+      (passed.both||0)+" of "+(report.observed_candles||0)+
+      " logged decisions cleared both strict cutoffs. "+
+      (report.experimental_rows_not_independent||0)+
+      " experimental positions came from "+(report.unique_signal_timestamps||0)+
+      " unique entry times, spanning "+(report.separate_four_hour_blocks||0)+
+      " separate four-hour blocks. Paper results are for evaluating ideas, not automatically changing scores.");
+    const container=document.getElementById("evidence-analysis-rows");
+    container.replaceChildren();
+    const map={hourly_reference:"Reference",dip_rebound:"Dip rebound",momentum_breakout:"Breakout"};
+    const cohorts=report.cohorts||[];
+    for(const strategy of ["hourly_reference","dip_rebound","momentum_breakout"]){
+      for(const horizon of [30,60,120,240]){
+        const c=cohorts.find(x=>x.strategy_id===strategy&&x.horizon_minutes===horizon);
+        const row=document.createElement("div");row.className="evidence-row";
+        const lhs=document.createElement("div");
+        const title=document.createElement("strong");
+        title.textContent=map[strategy]+" · "+(horizon<60?horizon+"m":horizon/60+"h");
+        const details=document.createElement("small");
+        const n=c?.completed||0;
+        const days=c?.independent_days||0;
+        details.textContent=n+" settled · "+days+" days · "+
+          (c?.evidence||"Insufficient independent evidence");
+        lhs.append(title,details);
+        const rhs=document.createElement("div");rhs.className="evidence-right";
+        const rate=document.createElement("strong");
+        rate.textContent=typeof c?.win_rate==="number"
+          ?(c.win_rate*100).toFixed(0)+"% won":"No results";
+        const ci=document.createElement("small");
+        const band=c?.simultaneous_wilson95;
+        ci.textContent=band&&band[0]!=null
+          ?"12-way-adjusted interval "+(band[0]*100).toFixed(0)+"–"+(band[1]*100).toFixed(0)+"%"
+          :"Confidence unavailable";
+        const net=document.createElement("small");
+        net.textContent=typeof c?.mean_net_r==="number"
+          ?"Avg "+(c.mean_net_r>=0?"+":"")+c.mean_net_r.toFixed(2)+" R net"
+          :"No net-return estimate";
+        rhs.append(rate,ci,net);row.append(lhs,rhs);container.append(row);
+      }
+    }
+    const calibration=document.getElementById("score-calibration");
+    calibration.replaceChildren();
+    if(rawCalibration){
+      const separate=rawCalibration.models||[];
+      const n=separate.reduce((sum,m)=>sum+Number(m.spaced_observations||0),0);
+      const warning=document.createElement("div");
+      warning.className="info";
+      warning.textContent="Original model scores: "+n+
+        " evaluated forward, 30-minute-spaced observations across saved model versions. "+
+        "This comparison starts at the FIRST untouched candle after observation and measures "+
+        "futures-cost-proxy net returns, not the probability event the original model was trained to predict. "+
+        "Winning experimental paper trades never automatically raise model scores.";
+      calibration.append(warning);
+    }
+    const bins=Object.entries(report.score_discrimination_30m||{});
+    if(!bins.length){
+      calibration.textContent="No independent 30-minute forecast comparisons have matured.";
+    } else {
+      for(const [range,v] of bins){
+        const chip=document.createElement("div");chip.className="calibration-chip";
+        const name=document.createElement("strong");name.textContent="Score "+range;
+        const label=document.createElement("span");
+        label.textContent=(v.n||0)+" separated intervals · "+
+          (v.n?Math.round(100*(v.winners||0)/v.n)+"% net-positive over 30m":"pending")+
+          (v.n<20?" · tiny sample":"");
+        chip.append(name,label);calibration.append(chip);
+      }
+    }
+  }
+  let statusPending=false;
+  async function tick(){
+    if(statusPending)return;
+    statusPending=true;
+    try{
+      const ctrl=new AbortController();
+      const timeout=setTimeout(()=>ctrl.abort(),35000);
+      let response;
+      try{response=await fetch("/api/state",{cache:"no-store",signal:ctrl.signal});}
+      finally{clearTimeout(timeout);}
+      if(!response.ok)throw Error("HTTP "+response.status);
+      const state=await response.json();
+      const archive=state.archive||{};
+      document.getElementById("archive-bar").style.width=Math.max(0,Math.min(100,Number(archive.percent)||0))+"%";
+      setVal("archive-info",archive.minimum_days_across_symbols!=null?
+        archive.minimum_days_across_symbols.toFixed(1)+" days available for the least-covered asset ("+
+        Number(archive.percent||0).toFixed(1)+"% of target)":"Archive coverage not measured yet");
+      const coverage=archive.symbols||{};
+      const byAge=Object.entries(coverage).map(([coin,details])=>({
+        coin, days:Number(details?.oldest_days_ago)||0, rows:Number(details?.rows)||0
+      })).sort((a,b)=>a.days-b.days);
+      const minimum=byAge[0];
+      const maximum=byAge[byAge.length-1];
+      setVal("archive-persisted",state.archive_persisted_at
+        ?"Latest archive saved to Neon: "+new Date(state.archive_persisted_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})
+        :"Archive checkpoint: not yet confirmed in this process");
+      setVal("archive-last-coin",state.archive_latest_symbol
+        ?"Latest import: "+state.archive_latest_symbol+" ("+Number(state.archive_latest_rows||0)+" rows)"
+        :"No archive batch recorded since startup");
+      setVal("archive-health",state.archive_last_error
+        ?"ARCHIVE ERROR: "+state.archive_last_error+
+          ". Main BTC scoring can still continue; the 180-day archive is paused."
+        :minimum
+        ?"Least history: "+minimum.coin.replace("USDT","")+" "+minimum.days.toFixed(1)+" days ("+minimum.rows.toLocaleString("en-GB")+" candles). "+
+         "Most history: "+maximum.coin.replace("USDT","")+" "+maximum.days.toFixed(1)+" days. "+
+         "This percentage uses the LEAST-covered coin. A restart can revert unsaved imports; the Neon checkpoint timestamp above shows what is durable."
+        :"Awaiting actual per-coin archive coverage.");
+      setVal("training-window",state.training_window_days===74?"60d train + 14d test":"30-day warm-up");
+      const score=state.score;
+      const phase=String(state.phase||"STARTING");
+      const signalOpen=Number(score?.timestamp_open_ms);
+      const signalAgeMs=Date.now()-(signalOpen+300000);
+      const scoreFresh=Boolean(score && Number.isFinite(signalOpen) && signalOpen>0 &&
+        signalAgeMs>=0 && signalAgeMs<=15*60000 &&
+        !["ERROR","RATE_LIMITED","STALE_DATA"].includes(phase));
+      const signalAgeMinutes=Number.isFinite(signalAgeMs)?
+        Math.max(0,Math.round(signalAgeMs/60000)):null;
+      const descriptions={
+        STARTING:"Starting the research service and checking its stored data.",
+        COLLECTING:"Downloading recent BTC and altcoin candles.",
+        TRAINING:"Learning which past conditions preceded favourable BTC outcomes.",
+        RUNNING:"Tracking completed candles, scoring opportunities and evaluating paper outcomes.",
+        STALE_DATA:"The latest complete BTC data is too old to score safely.",
+        PARTIAL_CONTEXT:"BTC has fresh candles but some altcoin measurements are delayed; paper entries paused.",
+        RATE_LIMITED:"The exchange has temporarily restricted API requests. The engine is pausing safely, not downloading.",
+        ERROR:"The last research cycle failed. Review the error panel below."
+      };
+      setVal("engine-plain-state",phase);
+      setVal("feature-coverage-note",score
+        ?"Latest scored BTC candle: "+new Date(Number(score.timestamp_open_ms)+300000).toLocaleTimeString("en-GB",{timeZone:"UTC",hour:"2-digit",minute:"2-digit"})+
+         " UTC. "+(score.context_complete===false
+           ?Number(score.missing_alt_feature_count||0)+" delayed altcoin features ("+
+             (score.missing_alt_features||[]).slice(0,5).join(", ")+
+             "). These receive neutral research inputs and block paper trades."
+           :"Full market context available for this candle.")+
+         (score.status==="STALE_DATA"?" Score is outdated.":"")
+        :"Waiting for a completed BTC model score.");
+      const venues={binance_global:"Binance.com spot",binance_us:"Binance.US spot"};
+
+      setVal("engine-source","Research source: "+(venues[state.data_venue]||state.data_venue||"Unknown"));
+      const hb=Date.parse(state.worker_heartbeat_at||"");
+      const heartAge=Date.now()-hb;
+      setVal("worker-alive",Number.isFinite(heartAge)?"Worker heartbeat: "+Math.floor(Math.max(0,heartAge)/1000)+"s ago":"Worker heartbeat: unknown");
+      const deadline=Date.parse(state.retry_at||"");
+      setVal("retry-deadline",phase==="RATE_LIMITED"&&Number.isFinite(deadline)
+        ?"Next permitted retry: "+prettyTime(state.retry_at)+
+        (deadline>Date.now()?" · "+Math.ceil((deadline-Date.now())/60000)+" min remaining":" · retry due")
+        :"");
+      setVal("plain-message",descriptions[phase]||"Checking research status.");
+      setVal("plain-detail",score && !scoreFresh ?
+        (state.message||"")+". Latest stored model reading is "+(signalAgeMinutes??"?")+
+        " minutes old and must not be treated as a current signal." :
+        (state.message||"Research-only: no real orders."));
+      // Unlike previous versions, stale scores must NEVER be re-rendered
+      // by unconditional updates lower down in this handler.
+      setVal("market-prob",score?asPct(score.p_tradeable)+(scoreFresh?(score.context_complete===false?" (partial)":""):" (old)"):"—");
+      setVal("long-prob",score?asPct(score.p_profitable_btc_long)+(scoreFresh?(score.context_complete===false?" (partial)":""):" (old)"):"—");
+      if(!scoreFresh && score && el("saved-data-banner")){
+        const staleWarning="The research model's last scored candle is "+(signalAgeMinutes??"?")+
+          " minutes old. Scores below show SAVED HISTORY, not current trading conditions. "+
+          "The engine may be restarting or waiting to download candles.";
+        el("saved-data-banner").textContent=staleWarning;
+      }
+      setVal("model-reliability",score&&score.out_of_sample&&score.out_of_sample.meets_research_gate?"Backtest passed":"Unverified");
+      setVal("last-trained",state.last_training_at?"Trained "+new Date(state.last_training_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"Not trained yet");
+      const report=score?.out_of_sample;
+      const audit=report?.cost_audit;
+      if(audit) {
+        setVal("cost-audit-details",
+          "Historical test: "+asPct(audit.test_price_positive_before_costs_fraction)+
+          " of example entries moved upwards before costs, but only "+
+          asPct(audit.test_net_positive_fraction)+" finished profitable with our current stop/target/time-exit rules. "+
+          "Assumed round-trip fee + slippage: about "+
+          Number(audit.round_trip_fee_slippage_bps_approx).toFixed(0)+" basis points. "+
+          "Out of "+Number(report.observations_test||0)+" overlapping historical observations, "+
+          Number(audit.test_both_thresholds_passed_candles||0)+" met both selection thresholds. "+
+          "These percentages describe historical labels, not guaranteed future returns.");
+      } else {
+        setVal("cost-audit-details","We are auditing the last historical test to separate genuine price movement from losses caused by execution costs. Results will appear after the next successful model training.");
+      }
+      if(audit){
+        const asPercent=(n)=>typeof n==="number"?(100*n).toFixed(1)+"%":"—";
+        const n=Number(audit.test_net_winners??0), tests=Number(report?.observations_test??0);
+        const gross=Number(audit.test_gross_price_positive_count??0);
+        setVal("cost-audit-message","On "+tests.toLocaleString("en-GB")+
+          " historical test candles, "+gross+" would have exited above entry before costs, but only "+
+          n+" ended net-positive after estimated costs ("+asPercent(audit.test_net_positive_fraction)+"). "+
+          "These are overlapping simulations, not independent trades.");
+        const ex=audit.minimum_stop_example;
+        if(ex)setVal("cost-audit-example","Minimum-stop illustration: target "+ex.net_win_r_if_target_hit+
+          "R net versus stop "+ex.net_loss_r_if_stop_hit+"R net. "+
+          "The corresponding stop-or-target-only break-even hit rate is "+
+          asPercent(ex.breakeven_target_hit_rate_if_only_target_or_stop)+
+          ". This is not a measured market win rate.");
+      }else {
+        setVal("cost-audit-message","No detailed fee audit in this model yet; historical score remains unverified.");
+        setVal("cost-audit-example","");
+      }
+      const bt=report?.filtered_trades;
+      setVal("research-only-explanation",report?
+        ("Research only: "+Number(bt?.trades||0)+" selected historical trades. "+
+         "To pass, the strategy needs at least 30, a win rate ≥55%, positive average net R "+
+         "and better results than the momentum benchmark. "+
+         (report.meets_research_gate?"Historical gate passed, but forward validation is still required.":"This historical gate has NOT passed.")+
+         " Paper simulation can operate independently; real orders are disabled.")
+        :"Research only: no historical validation result is available yet. Paper-only operation continues.");
+      setVal("backtest-summary",bt?
+         (bt.trades+" selected historical trades · "+(typeof bt.win_rate==="number"?asPct(bt.win_rate):"no win rate")+
+          " wins · mean "+(typeof bt.mean_net_r==="number"?bt.mean_net_r.toFixed(2)+" R":"—")+" after assumed costs. Past performance is not a forward result.")
+         :"No historical evaluation available.");
+      showRadar(state,scoreFresh);
+      showShadow(state);
+      showEvidence(state);
+      showPaper(state);
+      const diag=state.decision_diagnostics;
+      if(diag){
+        const explanation=(diag.explanations||[]).join("; ");
+        setVal("paper-decision-info","Trade filter: "+explanation+". "+
+          Number(diag.evaluated_candles||0)+" completed-candle forecasts logged; "+
+          Number(diag.score_qualified_candles||0)+" met both thresholds. "+
+          "Entry requires market ≥"+Math.round(100*diag.market_threshold)+
+          "% and BTC long ≥"+Math.round(100*diag.long_threshold)+"%.");
+      }else setVal("paper-decision-info","Awaiting first completed research scoring cycle. No paper-trade evidence yet.");
+      const prog=state.progress||{};
+      const p=Number.isFinite(Number(prog.percent))?Math.max(0,Math.min(100,Number(prog.percent))):0;
+      setText("phase-label",String(state.phase||"STARTING")+" · "+String(prog.stage||"initialising"));
+      setText("progress-value",p.toFixed(1)+"%");
+      document.getElementById("progress-fill").style.width=p+"%";
+      document.getElementById("progress-track").setAttribute("aria-valuenow",p.toFixed(1));
+      const collection=prog.collection||{};
+      setText("current-market",collection.current_symbol?("Market "+collection.symbol_number+"/"+collection.total_symbols+": "+collection.current_symbol):"Market: —");
+      setText("candle-count",collection.ingested_rows!=null?"Candle rows written: "+Number(collection.ingested_rows).toLocaleString("en-GB"):"Candle rows: —");
+      setText("heartbeat","Last data progress: "+prettyTime(prog.heartbeat_at||state.heartbeat_at));
+      const age=Date.now()-Date.parse(prog.heartbeat_at||state.heartbeat_at||"");
+      const stale=Number.isFinite(age)&&age>90000&&["COLLECTING","TRAINING"].includes(state.phase);
+      const warning=document.getElementById("stale-warning");
+      warning.hidden=!stale;
+      warning.textContent=stale?"No new candle/training progress for "+Math.floor(age/60000)+" minutes. Worker heartbeat above shows whether the service itself is alive.":"";
+      setText("live-errors",state.last_error?"Last error: "+state.last_error:"");
+      const events=document.getElementById("events");
+      const history=Array.isArray(state.events)?state.events.slice(-12).reverse():[];
+      events.replaceChildren();
+      if(!history.length){events.textContent="No events recorded yet.";}
+      for(const evt of history){
+        const item=document.createElement("div");item.className="activity-entry "+(["error","warning"].includes(evt.level)?evt.level:"");
+        const time=document.createElement("span");time.textContent=prettyTime(evt.at)+" · "+String(evt.level||"info").toUpperCase();
+        const msg=document.createElement("div");msg.textContent=String(evt.message||"");
+        item.append(time,msg);events.append(item);
+      }
+      const label=document.querySelector(".state");
+      if(label){label.textContent=state.phase==="RUNNING"?"RESEARCH RUNNING":state.phase==="ERROR"?"RESEARCH ERROR":String(state.phase||"STARTING");}
+      const desc=label?.nextElementSibling;
+      if(desc)desc.textContent=state.message||"Awaiting research worker";
+      const scoreLabel=document.querySelector(".score");
+      if(scoreLabel)scoreLabel.textContent=score?
+        Math.round(100*score.p_tradeable)+"/100"+(scoreFresh?"":" (OLD)"):"—";
+      const rows=[...document.querySelectorAll(".row")];
+      for(const row of rows){
+        const labelText=row.firstElementChild?.textContent||"";
+        const value=row.lastElementChild;
+        if(!value)continue;
+        if(labelText==="Live learning process")value.textContent=["RUNNING","PARTIAL_CONTEXT"].includes(state.phase)?"Running":state.phase==="ERROR"?"Error":"Starting";
+        if(labelText==="Market-condition model")value.textContent=score&&state.phase==="RUNNING"?"Research only":"Pending";
+      }
+      if(callout){
+        const f=state.forward_observations;
+        callout.textContent=state.phase==="RUNNING" && scoreFresh
+         ?"Market-opportunity radar is experimental. Its states suggest when to investigate manual long setups, not when to buy. The older BTC trade-profit model and shadow trading are secondary diagnostics; none authorise trades."
+         :"Current BTC model scores withheld: "+(score?"last scored candle "+(signalAgeMinutes??"?")+" minutes old. ":"")+
+           (state.message||"Checking market data.")+" "+
+           (state.last_error?"Error: "+state.last_error:"")+" Real trading is disabled.";
+      }
+    }catch(e){
+      setText("phase-label","Research API unreachable");
+      setText("live-errors","Cannot retrieve research progress: "+(e.message||String(e)));
+      if(callout)callout.textContent="Research status unavailable. Your database has not necessarily been affected; try Refresh.";
+    } finally {statusPending=false;}
+  }
+  window.refreshResearchStatus=tick;
+  await tick();setInterval(tick,15000);
+})();
+</script>
+</body></html>
