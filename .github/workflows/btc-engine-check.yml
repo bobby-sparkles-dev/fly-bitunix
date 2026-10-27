@@ -6,6 +6,12 @@ on:
     paths:
       - "btc-opportunity-engine/**"
       - ".github/workflows/btc-engine-check.yml"
+  pull_request:
+    branches:
+      - feat/btc-opportunity-engine-mvp
+    paths:
+      - "btc-opportunity-engine/**"
+      - ".github/workflows/btc-engine-check.yml"
   workflow_dispatch:
 
 jobs:
