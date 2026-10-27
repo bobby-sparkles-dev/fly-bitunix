@@ -296,27 +296,31 @@ def pg_sync(db: sqlite3.Connection, cur) -> dict:
     obs = db.execute("""SELECT candle_open_ms,observed_at,scheduled_start_ms,
         ruleset_id,state,score,context_json,reasons_json
         FROM opportunity_radar_observations ORDER BY candle_open_ms DESC LIMIT 600""").fetchall()
-    for signal, observed, first, rules, state, score, ctx, why in obs:
-        payload = {"candle_open_ms":signal,"observed_at":observed,
-                   "scheduled_start_ms":first,"ruleset_id":rules,
-                   "state":state,"score":score,"indicators":json.loads(ctx),
-                   "reasons":json.loads(why)}
-        cur.execute("""INSERT INTO btc_opportunity_radar_v1(venue,candle_open_ms,payload)
-            VALUES(%s,%s,%s) ON CONFLICT(venue,candle_open_ms) DO NOTHING""",
-            (PROVIDER, signal, Jsonb(payload)))
+    if obs:
+        rows = []
+        for signal, observed, first, rules, state, score, ctx, why in obs:
+            payload = {"candle_open_ms":signal,"observed_at":observed,
+                       "scheduled_start_ms":first,"ruleset_id":rules,
+                       "state":state,"score":score,"indicators":json.loads(ctx),
+                       "reasons":json.loads(why)}
+            rows.append((PROVIDER, signal, Jsonb(payload)))
+        cur.executemany("""INSERT INTO btc_opportunity_radar_v1(venue,candle_open_ms,payload)
+            VALUES(%s,%s,%s) ON CONFLICT(venue,candle_open_ms) DO NOTHING""", rows)
     outcomes = db.execute("""SELECT candle_open_ms,horizon_bars,status,
           result_json,evaluated_at FROM opportunity_radar_outcomes
           ORDER BY candle_open_ms DESC LIMIT 2400""").fetchall()
-    for signal, h, status, result, evaluated in outcomes:
-        cur.execute("""INSERT INTO btc_opportunity_outcomes_v1
+    if outcomes:
+        rows = [(PROVIDER,signal,h,status,
+                 Jsonb(json.loads(result)) if result else None,evaluated)
+                for signal,h,status,result,evaluated in outcomes]
+        cur.executemany("""INSERT INTO btc_opportunity_outcomes_v1
           (venue,candle_open_ms,horizon_bars,status,payload,evaluated_at)
           VALUES(%s,%s,%s,%s,%s,%s)
           ON CONFLICT(venue,candle_open_ms,horizon_bars) DO UPDATE SET
              status=EXCLUDED.status,payload=EXCLUDED.payload,
              evaluated_at=EXCLUDED.evaluated_at,updated_at=now()
           WHERE btc_opportunity_outcomes_v1.status='PENDING'
-            AND EXCLUDED.status IN ('COMPLETE','INVALID_DATA')""",
-            (PROVIDER,signal,h,status,Jsonb(json.loads(result)) if result else None,evaluated))
+            AND EXCLUDED.status IN ('COMPLETE','INVALID_DATA')""", rows)
     return {"observations":len(obs),"outcomes":len(outcomes)}
 
 
