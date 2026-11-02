@@ -360,3 +360,8 @@ def research_status(request: Request):
 @app.exception_handler(psycopg.Error)
 async def database_error(_request: Request, _exc: psycopg.Error):
     return JSONResponse({"detail":"Database operation failed. Check the supplied fields and retry."}, status_code=400)
+
+
+# Adaptive, per-idea validation missions
+from . import mission
+mission.mount(app, connect, ensure_auth, record)
